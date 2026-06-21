@@ -11,18 +11,24 @@ use Psr\Container\NotFoundExceptionInterface;
 use oihana\controllers\enums\ControllerParam;
 
 /**
- * Trait providing helpers to manage the application instance and generate URLs.
+ * Provides a controller-level `api` settings array, hydrated either from an
+ * initialization array or from a PSR-11 container entry.
  *
- * This trait allows controllers to access the Slim App instance, retrieve
- * the application's base path, and build URLs with optional query parameters.
+ * The settings are exposed through the protected `$api` property and populated
+ * by {@see self::initializeApi()}, so API-related configuration (endpoints,
+ * keys, feature flags, etc.) can be centralized in the DI container and shared
+ * consistently across all controllers.
  *
- * Note: You can define a `baseUrl` in the DI container to use it consistently
- * across all controllers.
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait ApiTrait
 {
     /**
      * The default api settings.
+     *
+     * @var array
      */
     protected array $api = [] ;
 

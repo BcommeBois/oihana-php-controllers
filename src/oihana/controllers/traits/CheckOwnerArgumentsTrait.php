@@ -48,8 +48,11 @@ use function oihana\models\helpers\getDocumentsModel;
  *
  * // It's safe to call with missing args: they will be ignored
  * $controller->checkOwnerArguments([ 'userId' => 123 ]);
+ * ```
  *
- * @package oihana\models\traits
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait CheckOwnerArgumentsTrait
 {
@@ -72,14 +75,16 @@ trait CheckOwnerArgumentsTrait
      * $controller->checkOwnerArguments([ 'userId' => 1 ]);
      * ```
      *
-     * @param array $args array<string, mixed> $args Arguments to validate
+     * @param array $args array<string, mixed> $args Arguments to validate.
      *
-     * @throws ContainerExceptionInterface
-     * @throws DependencyException
-     * @throws Error404
-     * @throws Error500
-     * @throws NotFoundException
-     * @throws NotFoundExceptionInterface
+     * @return void
+     *
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws DependencyException If the dependency cannot be resolved by the container.
+     * @throws Error404 If one of the checked arguments does not match an existing document record.
+     * @throws Error500 If an argument is associated with a null or invalid Documents model reference.
+     * @throws NotFoundException If the requested entry is not found in the container.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
      */
     public function checkOwnerArguments( array $args = [] ) :void
     {
@@ -126,9 +131,9 @@ trait CheckOwnerArgumentsTrait
      * $controller->initializeOwner([ 'owner' => [ 'userId' => $userModel ] ]);
      * ```
      *
-     * @param array<string, mixed> $init Initialization array
+     * @param array<string, mixed> $init Initialization array, the owner definition is read from the {@see ControllerParam::OWNER} key.
      *
-     * @return static
+     * @return static Returns the current instance for method chaining.
      */
     public function initializeOwner( array $init = [] ):static
     {

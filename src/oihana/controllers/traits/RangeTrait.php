@@ -29,6 +29,8 @@ use function oihana\files\assertFile;
  * (ranges are typically small); the full file is streamed lazily.
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait RangeTrait
 {

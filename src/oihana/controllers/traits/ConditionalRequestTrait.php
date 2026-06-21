@@ -35,6 +35,8 @@ use function oihana\files\assertFile;
  * {@see ConditionalRequestOption::HASH_CONTENT} option is set.
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait ConditionalRequestTrait
 {

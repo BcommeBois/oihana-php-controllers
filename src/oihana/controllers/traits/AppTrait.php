@@ -23,6 +23,10 @@ use function oihana\files\path\joinPaths;
  *
  * Note: You can define a `baseUrl` in the DI container to use it consistently
  * across all controllers.
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait AppTrait
 {
@@ -60,6 +64,12 @@ trait AppTrait
      * @param bool   $useNow If true, timestamp-like parameters will be processed immediately.
      *
      * @return string The full URL including base URL, path, and query parameters.
+     *
+     * @example
+     * ```php
+     * $url = $this->getUrl( 'articles' , [ 'page' => 2 ] ) ;
+     * // e.g. "https://example.com/myapp/articles?page=2"
+     * ```
      */
     public function getUrl( string $path = '' , array $params = [] , bool $useNow = false ) :string
     {
@@ -79,11 +89,11 @@ trait AppTrait
      * @param array $init Optional initialization array.
      * @param ContainerInterface|null $container Optional DI container.
      *
-     * @return static Returns the current controller instance for method chaining.
+     * @return static Returns the current instance for method chaining.
      *
-     * @throws NotFoundExceptionInterface If the container is used and the App class is not found.
-     * @throws ContainerExceptionInterface If the container throws an internal error.
-     * @throws RuntimeException If no valid App instance is provided or found.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws RuntimeException If no valid App instance is provided in the init array nor resolvable from the container.
      */
     public function initializeApp( array $init = [] , ?ContainerInterface $container = null  ):static
     {

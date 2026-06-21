@@ -24,6 +24,8 @@ use Slim\Interfaces\RouteParserInterface;
  * Note: You can define a `baseUrl` in the DI container to be used across all controllers.
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait RouterTrait
 {
@@ -44,10 +46,10 @@ trait RouterTrait
      *
      * @param array $init Optional initialization array
      * @param ContainerInterface|null $container Optional DI container
-     * @return static Returns the current instance for method chaining
-     * @throws NotFoundExceptionInterface If the requested container entry is not found
-     * @throws ContainerExceptionInterface If the container throws an error during access
-     * @throws RuntimeException If no router instance can be resolved
+     * @return static Returns the current instance for method chaining.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws RuntimeException If no router instance can be resolved from the init array nor the container.
      */
     public function initializeRouterParser( array $init = [] , ?ContainerInterface $container = null  ):static
     {
@@ -78,7 +80,7 @@ trait RouterTrait
      * @param array $params Optional associative array of route parameters
      * @param int $status HTTP redirect status code (default 302)
      *
-     * @return Response PSR-7 response with redirect headers
+     * @return Response The PSR-7 response carrying the redirect `Location` header and status.
      */
     public function redirectFor( Response $response , string $name , array $params = [] , int $status = 302 ) : Response
     {
@@ -92,7 +94,7 @@ trait RouterTrait
      *
      * @param string $routeName Name of the route
      *
-     * @return string Full URL including base URL and route path
+     * @return string The full URL including the base URL and the resolved route path.
      */
     protected function urlFor( string $routeName ) :string
     {

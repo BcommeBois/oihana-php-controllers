@@ -31,6 +31,8 @@ use function oihana\files\archive\zip\zip;
  * package, which guards against path traversal (Zip Slip) and decompression bombs.
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait ArchiveTrait
 {

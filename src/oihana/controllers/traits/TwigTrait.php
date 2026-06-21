@@ -46,6 +46,8 @@ use Twig\Error\SyntaxError;
  * ```
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  * @see     https://www.slimframework.com/docs/v4/features/templates.html
  * @see     https://twig.symfony.com/
  */
@@ -74,8 +76,8 @@ trait TwigTrait
      *
      * @return static Returns the current instance for method chaining.
      *
-     * @throws NotFoundExceptionInterface  If the container does not contain a Twig instance.
-     * @throws ContainerExceptionInterface If there is an error while retrieving Twig from the container.
+     * @throws NotFoundExceptionInterface  If no entry was found in the container for the given identifier.
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
      * @throws InvalidArgumentException    If no valid Twig instance is provided or available.
      */
     public function initializeTwig

@@ -45,6 +45,10 @@ use Psr\Http\Message\ServerRequestInterface as Request;
  *
  * @see beforeModelCall()
  * @see afterModelCall()
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait ModelCallTrait
 {

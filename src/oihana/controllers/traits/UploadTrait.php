@@ -18,6 +18,8 @@ use function oihana\files\validateMimeType;
  * {@see FileException} on any failure, leaving the response shaping to the controller.
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait UploadTrait
 {
@@ -33,6 +35,24 @@ trait UploadTrait
      *
      * @throws FileException If the field is missing, the upload failed, the size/MIME
      *                       checks fail, or the destination is invalid.
+     *
+     * @example
+     * ```php
+     * class AvatarController extends Controller
+     * {
+     *     use UploadTrait ;
+     *
+     *     public function upload( Request $request , Response $response ) : Response
+     *     {
+     *         $path = $this->receiveUpload( $request , 'avatar' , '/var/uploads' , [
+     *             UploadOption::MAX_SIZE           => 2_000_000 ,
+     *             UploadOption::ALLOWED_MIME_TYPES => [ 'image/png' , 'image/jpeg' ] ,
+     *         ] ) ;
+     *
+     *         return $this->success( $request , $response , [ 'path' => $path ] ) ;
+     *     }
+     * }
+     * ```
      */
     public function receiveUpload( Request $request , string $field , string $destDir , array $options = [] ) : string
     {

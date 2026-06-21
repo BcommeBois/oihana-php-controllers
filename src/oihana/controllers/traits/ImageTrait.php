@@ -23,6 +23,19 @@ use Slim\Psr7\Factory\StreamFactory;
 
 use function oihana\files\assertFile;
 
+/**
+ * Provides image helpers built on top of Imagick: dimension inspection, on-the-fly
+ * resizing and shadow effects, and PSR-7 responses that stream an image file or an
+ * in-memory Imagick blob.
+ *
+ * Transform and header behavior is driven by the `$options` arrays, keyed by the
+ * {@see ResizeOption}, {@see ImagickResponseOption} and {@see FileResponseOption} enums.
+ * The images root path can be centralized through {@see self::initializeImagePath()}.
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
+ */
 trait ImageTrait
 {
     use StatusTrait ;
@@ -59,6 +72,8 @@ trait ImageTrait
 
     /**
      * The root path where the images are stored on the server.
+     *
+     * @var string
      */
     public string $imagePath = '' ;
 
@@ -69,7 +84,7 @@ trait ImageTrait
      *
      * @return ?array An associative array with `width` and `height` keys.
      *
-     * @throws ImagickException
+     * @throws ImagickException If the image cannot be read or decoded by Imagick.
      */
     public function getImageDimensions( Imagick|string $image ) :?array
     {
@@ -87,7 +102,7 @@ trait ImageTrait
      *
      * @return int The image height in pixels.
      *
-     * @throws ImagickException
+     * @throws ImagickException If the image cannot be read or decoded by Imagick.
      */
     public function getImageHeight( Imagick|string $image ) :int
     {
@@ -115,7 +130,7 @@ trait ImageTrait
      *
      * @return int The image width in pixels.
      *
-     * @throws ImagickException
+     * @throws ImagickException If the image cannot be read or decoded by Imagick.
      */
     public function getImageWidth( Imagick|string $image ) :int
     {
@@ -272,7 +287,12 @@ trait ImageTrait
     }
 
     /**
-     * Resize an image.
+     * Resizes an image, clamping it to the configured maximum dimensions and optionally
+     * fitting it to an explicit width and/or height.
+     *
+     * When only one of `$w`/`$h` is given, the other is derived from {@see aspectFit()} so the
+     * aspect ratio is preserved. A `null` input is returned untouched.
+     *
      * Ex: ../image?resize=true&w=50&h=50
      *
      * @param Imagick|string|null $image   The url of the image file or the Imagick object reference to transform.
@@ -280,9 +300,9 @@ trait ImageTrait
      * @param ?int                $h       Optional explicit target height.
      * @param array               $options Optional overrides (see {@see ResizeOption}).
      *
-     * @return string|Imagick|null
+     * @return string|Imagick|null The transformed Imagick instance, or the original input when no transform applies.
      *
-     * @throws ImagickException
+     * @throws ImagickException If the image cannot be read, decoded or resized by Imagick.
      */
     public function resize( Imagick|string|null $image , ?int $w = null , ?int $h = null , array $options = [] ):string|Imagick|null
     {
@@ -327,16 +347,20 @@ trait ImageTrait
     }
 
     /**
-     * Apply a shadow over an image.
+     * Applies a drop shadow over an image.
+     *
+     * The shadow is described by a comma-separated `opacity,sigma,x,y` string; any other
+     * shape (or a `null` image) leaves the input unchanged.
+     *
      * Ex: ../image?shadow=true
      * Ex: ../image?shadow=60,4,10,20
      *
      * @param Imagick|string|null $image The url of the image file or the Imagick object reference to transform.
      * @param ?string             $value The shadow definition: `opacity,sigma,x,y`.
      *
-     * @return string|Imagick|null
+     * @return string|Imagick|null The composited Imagick instance, or the original input when no shadow applies.
      *
-     * @throws ImagickException
+     * @throws ImagickException If the image cannot be read, decoded or composited by Imagick.
      */
     public function shadow( Imagick|string|null $image , null|string $value = null  ):string|Imagick|null
     {

@@ -23,6 +23,8 @@ use Slim\Csrf\Guard;
  * are always available.
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait CsrfTrait
 {
@@ -42,7 +44,7 @@ trait CsrfTrait
      * Returns the current CSRF token **name**, or `null` when no token has been generated
      * (or the guard is not configured).
      *
-     * @return string|null
+     * @return string|null The current token name, or `null` when unavailable.
      */
     public function csrfTokenName() : ?string
     {
@@ -53,7 +55,7 @@ trait CsrfTrait
      * Returns the field name under which the CSRF token **name** is submitted
      * (e.g. `csrf_name`), or `null` when the guard is not configured.
      *
-     * @return string|null
+     * @return string|null The token-name field key, or `null` when the guard is not configured.
      */
     public function csrfTokenNameKey() : ?string
     {
@@ -64,7 +66,7 @@ trait CsrfTrait
      * Returns the current CSRF token **value**, or `null` when no token has been generated
      * (or the guard is not configured).
      *
-     * @return string|null
+     * @return string|null The current token value, or `null` when unavailable.
      */
     public function csrfTokenValue() : ?string
     {
@@ -75,7 +77,7 @@ trait CsrfTrait
      * Returns the field name under which the CSRF token **value** is submitted
      * (e.g. `csrf_value`), or `null` when the guard is not configured.
      *
-     * @return string|null
+     * @return string|null The token-value field key, or `null` when the guard is not configured.
      */
     public function csrfTokenValueKey() : ?string
     {
@@ -114,7 +116,13 @@ trait CsrfTrait
      *
      * @return array<string,string> The generated token pair, or an empty array when the guard is not configured.
      *
-     * @throws Exception
+     * @throws Exception If the guard fails to generate a cryptographically secure token.
+     *
+     * @example
+     * ```php
+     * $tokens = $this->generateCsrfToken() ;
+     * // [ 'csrf_name' => '...' , 'csrf_value' => '...' ]
+     * ```
      */
     public function generateCsrfToken() : array
     {
@@ -133,8 +141,8 @@ trait CsrfTrait
      *
      * @return static Returns the current instance for method chaining.
      *
-     * @throws ContainerExceptionInterface
-     * @throws NotFoundExceptionInterface
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
      */
     public function initializeCsrf( array $init = [] , ?ContainerInterface $container = null ) : static
     {

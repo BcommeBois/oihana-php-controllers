@@ -23,6 +23,10 @@ use Slim\HttpCache\CacheProvider;
  *   To enable caching, you **must** call {@see initializeHttpCache()} in your controller.
  *   If you forget to initialize the cache provider, these methods will silently
  *   return the original response without adding any cache-related headers.
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait HttpCacheTrait
 {
@@ -86,10 +90,10 @@ trait HttpCacheTrait
      * @param array $init Optional initialization array
      * @param ContainerInterface|null $container Optional DI container to retrieve the cache provider
      *
-     * @return static Returns the current instance for method chaining
+     * @return static Returns the current instance for method chaining.
      *
-     * @throws ContainerExceptionInterface
-     * @throws NotFoundExceptionInterface
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
      */
     public function initializeHttpCache( array $init = [] , ?ContainerInterface $container = null ):static
     {

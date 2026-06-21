@@ -60,8 +60,8 @@ trait LanguagesTrait
      *
      * @return static Returns the current instance for method chaining.
      *
-     * @throws ContainerExceptionInterface If the container fails to retrieve the languages.
-     * @throws NotFoundExceptionInterface  If the requested languages key is not found in the container.
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws NotFoundExceptionInterface  If no entry was found in the container for the given identifier.
      */
     public function initializeLanguages( array $init = [] , ?ContainerInterface $container = null ) :static
     {

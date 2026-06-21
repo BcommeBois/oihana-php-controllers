@@ -18,6 +18,9 @@ use oihana\controllers\enums\ControllerParam;
  * This trait allows controllers to access the Slim App instance, retrieve
  * the application's pagination definition.
  *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait PaginationTrait
 {
@@ -33,14 +36,14 @@ trait PaginationTrait
      * This method retrieves the default pagination settings for the application,
      * either from the provided initialization array or from the dependency injection container.
      *
-     * @param array $init Optional initialization array (e.g., ['pagination' => Pagination instance]).
-     * @param ContainerInterface|null $container Optional DI container for retrieving the App instance.
+     * @param array                   $init      Optional initialization array (e.g., ['pagination' => Pagination instance]).
+     * @param ContainerInterface|null $container Optional DI container used to retrieve the default pagination definition.
      *
-     * @return static Returns the current controller instance for method chaining.
+     * @return static Returns the current instance for method chaining.
      *
-     * @throws ContainerExceptionInterface If the container throws an internal error.
-     * @throws NotFoundExceptionInterface If the container is used and the App class is not found.
-     * @throws ReflectionException
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
+     * @throws ReflectionException If a class or method cannot be reflected.
      */
     public function initializePagination( array $init = [] , ?ContainerInterface $container = null ):static
     {

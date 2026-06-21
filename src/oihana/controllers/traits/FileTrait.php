@@ -14,6 +14,18 @@ use oihana\controllers\enums\FileResponseOption;
 use function oihana\controllers\helpers\applyContentHeaders;
 use function oihana\files\assertFile;
 
+/**
+ * Serves a file as a PSR-7 download response.
+ *
+ * The single helper validates the file, then streams it lazily so large files are never
+ * loaded entirely into memory. A missing or unreadable file is reported as a `500`
+ * response rather than leaking native warnings, and content headers (`Content-Type`,
+ * `Content-Length`, `Content-Disposition`) are opt-in via the `$options` array.
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
+ */
 trait FileTrait
 {
     use StatusTrait ;
@@ -35,6 +47,22 @@ trait FileTrait
      *                           - `contentDisposition`    (string) the `Content-Disposition` value to use.
      *
      * @return Response The response carrying the file body, or a `500` failure response on error.
+     *
+     * @example
+     * ```php
+     * class DownloadController extends Controller
+     * {
+     *     use FileTrait ;
+     *
+     *     public function invoice( Request $request , Response $response ) : Response
+     *     {
+     *         return $this->fileResponse( $request , $response , '/var/invoices/2026-06.pdf' , [
+     *             FileResponseOption::USE_CONTENT_TYPE   => true ,
+     *             FileResponseOption::USE_CONTENT_LENGTH => true ,
+     *         ] ) ;
+     *     }
+     * }
+     * ```
      */
     public function fileResponse
     (

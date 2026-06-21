@@ -10,6 +10,16 @@ use oihana\enums\Output;
 
 use function oihana\core\date\humanizeDuration;
 
+/**
+ * Provides lightweight benchmarking helpers to measure the execution time of a controller action.
+ *
+ * When benchmarking is enabled (via the `bench` flag), a controller can mark the start of an
+ * operation, then later compute and store a human-readable elapsed time in its output options.
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
+ */
 trait BenchTrait
 {
     use PrepareBench ;
@@ -22,8 +32,13 @@ trait BenchTrait
 
     /**
      * Initialize the `bench` property.
+     *
+     * The flag is read directly when `$init` is a boolean, otherwise from the
+     * `ControllerParam::BENCH` key of the initialization array (defaulting to `false`).
+     *
      * @param bool|array $init Optional initialization array or the bench boolean value.
-     * @return $this
+     *
+     * @return static Returns the current instance for method chaining.
      */
     public function initializeBench( bool|array $init = [] ):static
     {
@@ -32,10 +47,15 @@ trait BenchTrait
     }
 
     /**
-     * Stop the bench.
-     * @param int|float|null $timestamp
-     * @param array $options
-     * @return ?string The time interval of the bench.
+     * Stop the bench and compute the elapsed time since the given start timestamp.
+     *
+     * When a valid positive `$timestamp` is supplied, the elapsed duration is humanized
+     * (e.g. `"1.2 s"`) and stored in `$options` under the `Output::TIME` key.
+     *
+     * @param int|float|null $timestamp The start timestamp returned by {@see self::startBench()}, or `null`.
+     * @param array          $options   Reference to the output options array updated with the elapsed time.
+     *
+     * @return ?string The human-readable time interval of the bench, or `null` when no valid timestamp was given.
      */
     public function endBench( null|int|float $timestamp , array &$options = [] ): ?string
     {
@@ -50,10 +70,15 @@ trait BenchTrait
 
     /**
      * Start the bench process.
-     * @param Request|null $request
-     * @param array $args
-     * @param array|null $params
-     * @return int|float|null
+     *
+     * Benchmarking only starts when {@see self::prepareBench()} confirms it is enabled for the
+     * current request; otherwise the method returns `0`.
+     *
+     * @param Request|null $request The current PSR-7 request, used to decide whether benchmarking applies.
+     * @param array        $args    Optional route arguments forwarded to the preparation step.
+     * @param array|null   $params  Reference to the request parameters, possibly populated by the preparation step.
+     *
+     * @return int|float|null The start timestamp (from `microtime(true)`) when benchmarking is enabled, otherwise `0`.
      */
     public function startBench( ?Request $request , array $args = [] , ?array &$params = null ) :null|float|int
     {

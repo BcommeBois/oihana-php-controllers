@@ -19,6 +19,10 @@ use Psr\Http\Message\ServerRequestInterface as Request;
  * ```php
  * $documents = $this->outputDocuments($request, $response, $data, ['page' => 1]);
  * ```
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait OutputDocumentsTrait
 {

@@ -23,6 +23,18 @@ use oihana\controllers\traits\prepare\PrepareSkin;
 use oihana\controllers\traits\prepare\PrepareSort;
 use oihana\controllers\traits\prepare\PrepareTimezone;
 
+/**
+ * Aggregates all the individual parameter preparation traits into a single one.
+ *
+ * Using this trait gives a controller every `prepare*` helper at once (active, bench, date,
+ * filter, facets, groupBy, hasTotal, ids, interval, int, lang, limit, margin, mock, order,
+ * quantity, search, skin, sort and timezone), so request parameters can be normalized and
+ * validated in a consistent way.
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
+ */
 trait PrepareParamTrait
 {
     use PrepareActive ,

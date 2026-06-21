@@ -5,7 +5,14 @@ namespace oihana\controllers\traits ;
 use xyz\oihana\schema\Pagination;
 
 /**
- * The limit/offset trait.
+ * Holds the limit/offset pagination bounds of a controller.
+ *
+ * This trait exposes the default `limit` and `offset` values together with the
+ * `minLimit`/`maxLimit` range used to clamp the page size requested by a client.
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait LimitTrait
 {
@@ -28,15 +35,17 @@ trait LimitTrait
     public ?int $minLimit = null ;
 
     /**
-     * The default limit value.
+     * The default offset value.
      * @var int|null
      */
     public ?int $offset = null ;
 
     /**
-     * Initialize the min/max limit range.
-     * @param array $init
-     * @return static
+     * Initializes the limit, offset and min/max limit range from an array.
+     *
+     * @param array $init Initialization array, read from the {@see Pagination} keys (LIMIT, MAX_LIMIT, MIN_LIMIT, OFFSET).
+     *
+     * @return static Returns the current instance for method chaining.
      */
     public function initializeLimit( array $init = [] ):static
     {

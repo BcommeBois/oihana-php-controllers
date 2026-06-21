@@ -27,6 +27,8 @@ use function oihana\controllers\helpers\applyContentHeaders;
  * never in this trait.
  *
  * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait FileEncryptionTrait
 {
@@ -52,7 +54,7 @@ trait FileEncryptionTrait
      *
      * @return string The path of the decrypted file.
      *
-     * @throws FileException
+     * @throws FileException If the input file is missing/unreadable or the decryption fails.
      */
     public function decryptFile( string $input , ?string $output = null ) : string
     {
@@ -91,8 +93,8 @@ trait FileEncryptionTrait
      *
      * @return string The path of the encrypted file.
      *
-     * @throws DirectoryException
-     * @throws FileException
+     * @throws DirectoryException If the output directory cannot be created or written.
+     * @throws FileException If the input file is missing/unreadable or the encryption fails.
      */
     public function encryptFile( string $input , ?string $output = null ) : string
     {
@@ -134,9 +136,9 @@ trait FileEncryptionTrait
      * @param ContainerInterface|null $container Optional PSR-11 container.
      *
      * @return static Returns the current instance for method chaining.
-     * 
-     * @throws ContainerExceptionInterface
-     * @throws NotFoundExceptionInterface
+     *
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
      */
     public function initializeFileEncryption( array $init = [] , ?ContainerInterface $container = null ) : static
     {
@@ -158,7 +160,7 @@ trait FileEncryptionTrait
     /**
      * Returns the configured encryption helper or throws if none was provided.
      *
-     * @return OpenSSLFileEncryption
+     * @return OpenSSLFileEncryption The configured file encryption helper.
      *
      * @throws RuntimeException If no encryption helper has been initialized.
      */

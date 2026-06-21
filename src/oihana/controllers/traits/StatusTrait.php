@@ -33,6 +33,10 @@ use Psr\Http\Message\ServerRequestInterface as Request;
  * return $this->status($response, 'custom message', 200);
  * return $this->success($request, $response, $data, [Output::COUNT => count($data)]);
  * ```
+ *
+ * @package oihana\controllers\traits
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait StatusTrait
 {
@@ -119,7 +123,7 @@ trait StatusTrait
      * @param  int       $status    HTTP status code (default: 200).
      * @param ?string    $accept    The header accepted by the client : 'application/cbor' or by default 'application/json'
      *
-     * @return Response
+     * @return Response The response encoded as CBOR or JSON according to the negotiated format.
      *
      * @see FileMimeType::JSON
      * @see FileMimeType::CBOR
