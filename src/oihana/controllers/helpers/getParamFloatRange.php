@@ -24,10 +24,6 @@ use Psr\Http\Message\ServerRequestInterface as Request;
  *
  * @throws NotFoundException If `$throwable` is true and the parameter is not found in the request.
  *
- * @return float|null
- *
- * @throws NotFoundException
- *
  * @example
  * ```php
  * $discount = getParamFloatRange($request, 'discount', 0.0, 100.0, 0.0);

@@ -76,11 +76,11 @@ abstract class Controller
      *                              - string $path : The path expression of the component.
      *                              - Validator $validator : The optional validator of the controller (by default use a basic Validator instance).
      *
-     * @throws ContainerExceptionInterface
-     * @throws NotFoundExceptionInterface
-     * @throws DependencyException
-     * @throws NotFoundException
-     * @throws ReflectionException
+     * @throws ContainerExceptionInterface If the container encounters an error while retrieving an entry.
+     * @throws NotFoundExceptionInterface If no entry was found in the container for the given identifier.
+     * @throws DependencyException If a dependency cannot be resolved by the container.
+     * @throws NotFoundException If the requested entry is not found in the container.
+     * @throws ReflectionException If a class or method cannot be reflected during initialization.
      */
     public function __construct( Container $container , array $init = [] )
     {
@@ -156,9 +156,9 @@ abstract class Controller
     /**
      * Returns the current route associated with the request.
      *
-     * @param ?Request $request
+     * @param ?Request $request The current PSR-7 server request, or null when no request context is available.
      *
-     * @return RouteInterface|null
+     * @return RouteInterface|null The matched route, or null when there is no request or no route was matched.
      */
     public function getRoute( ?Request $request ) :?RouteInterface
     {
