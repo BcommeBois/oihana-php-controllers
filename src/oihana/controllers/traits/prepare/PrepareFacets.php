@@ -7,16 +7,31 @@ use oihana\controllers\traits\ParamsTrait;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use function oihana\controllers\helpers\getQueryParam;
 
+/**
+ * Prepares the facet definitions of a controller request.
+ *
+ * This trait merges the facets carried by the route arguments with two request-driven
+ * sources: the per-parameter facet definitions declared in the controller `params`
+ * mapping (see {@see prepareParamsFacets()}), and a raw JSON `facets` query parameter.
+ * Each contributing query value is URL-encoded and recorded in the parameter bag, while
+ * invalid JSON is logged as a warning and ignored.
+ *
+ * @package oihana\controllers\traits\prepare
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
+ */
 trait PrepareFacets
 {
     use ParamsTrait;
 
     /**
-     * Prepare the facets definitions.
-     * @param Request|null $request
-     * @param array $args
-     * @param array|null $params
-     * @return array|null
+     * Prepares and returns the facet definitions.
+     *
+     * @param Request|null $request The incoming PSR-7 server request, or null when no request context is available.
+     * @param array        $args    The route/controller arguments that may carry an initial set of facets.
+     * @param array|null   $params  A reference to the parameter bag updated in place with the URL-encoded facet payloads.
+     *
+     * @return array|null The merged facet definitions.
      */
     protected function prepareFacets( ?Request $request , array $args = [] , ?array &$params = [] ) :?array
     {
@@ -51,10 +66,10 @@ trait PrepareFacets
     /**
      * Try to creates the facets definition with the $this->params array definition of the controller.
      * Target all 'facets' definitions.
-     * @param Request|null $request
-     * @param array $args
-     * @param array $facets
-     * @param array|null $params
+     * @param Request|null $request The incoming PSR-7 server request, or null when no request context is available.
+     * @param array        $args    The route/controller arguments, optionally carrying a {@see ControllerParam::PARAMS} mapping.
+     * @param array        $facets  A reference to the facet collection enriched in place from the matching query parameters.
+     * @param array|null   $params  A reference to the parameter bag updated in place with the URL-encoded facet payloads.
      * @return void
      * @example
      * To list with the controller multiple things by ids,

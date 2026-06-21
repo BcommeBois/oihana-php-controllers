@@ -11,6 +11,20 @@ use oihana\enums\FilterOption;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use function oihana\controllers\helpers\getQueryParam;
 
+/**
+ * Prepares the pagination `limit` and `offset` parameters of a controller request.
+ *
+ * This trait resolves an integer pagination value from the route arguments and lets the
+ * request query string override it, clamped between the controller/pagination `minLimit`
+ * and `maxLimit` bounds. Non-integer results fall back to the controller property, the
+ * pagination object, then `$defaultValue`, and a request-provided value is recorded in the
+ * parameter bag. The same logic serves both {@see Pagination::LIMIT} and
+ * {@see Pagination::OFFSET}.
+ *
+ * @package oihana\controllers\traits\prepare
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
+ */
 trait PrepareLimit
 {
     use PaginationTrait ,
@@ -18,12 +32,12 @@ trait PrepareLimit
 
     /**
      * Prepare and returns the 'limit' value.
-     * @param Request|null $request
-     * @param array $args
-     * @param array|null $params
-     * @param int $defaultValue
-     * @param string $property
-     * @return int
+     * @param Request|null $request      The incoming PSR-7 server request, or null when no request context is available.
+     * @param array        $args         The route/controller arguments that may carry an initial pagination value.
+     * @param array|null   $params       A reference to the parameter bag updated in place with the prepared value.
+     * @param int          $defaultValue The fallback value used when no valid integer is resolved.
+     * @param string       $property     The pagination property to read and store (defaults to {@see Pagination::LIMIT}).
+     * @return int The resolved, range-clamped pagination value.
      */
     protected function prepareLimit
     (
@@ -73,11 +87,11 @@ trait PrepareLimit
 
     /**
      * Prepare and returns the 'offset' value.
-     * @param Request|null $request
-     * @param array $args
-     * @param array|null $params
-     * @param int $defaultValue
-     * @return int
+     * @param Request|null $request      The incoming PSR-7 server request, or null when no request context is available.
+     * @param array        $args         The route/controller arguments that may carry an initial offset value.
+     * @param array|null   $params       A reference to the parameter bag updated in place with the prepared value.
+     * @param int          $defaultValue The fallback value used when no valid integer is resolved.
+     * @return int The resolved, range-clamped offset value.
      */
     protected function prepareOffset( ?Request $request , array $args = [] , ?array &$params = null , int $defaultValue = 0 ) :int
     {

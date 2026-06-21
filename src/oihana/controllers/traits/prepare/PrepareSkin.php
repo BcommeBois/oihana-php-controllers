@@ -16,6 +16,10 @@ use function oihana\controllers\helpers\getQueryParam;
  * - Method-specific skin definitions
  * - Enumeration of all available skins
  * - Validation and preparation of skins from requests or initialization arrays
+ *
+ * @package oihana\controllers\traits\prepare
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
  */
 trait PrepareSkin
 {

@@ -7,6 +7,19 @@ use oihana\enums\Char;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use function oihana\controllers\helpers\getQueryParam;
 
+/**
+ * Prepares the identifier list of a controller request.
+ *
+ * This trait normalizes a list of identifiers into a comma-separated string. The value
+ * resolves from the route arguments or the matching controller property (arrays are
+ * imploded with {@see Char::COMMA}); a string query parameter overrides it and, when
+ * present, the value is recorded in the parameter bag. The parameter name defaults to
+ * {@see ControllerParam::IDS} but can be customized.
+ *
+ * @package oihana\controllers\traits\prepare
+ * @author  Marc Alcaraz (ekameleon)
+ * @since   1.0.0
+ */
 trait PrepareIDs
 {
     /**
@@ -17,7 +30,7 @@ trait PrepareIDs
 
     /**
      * Initialize all skins properties with an associative array definition.
-     * @param array $init
+     * @param array $init The configuration array, optionally carrying a {@see ControllerParam::IDS} entry.
      * @return void
      */
     protected function initializeIDs( array $init = [] ):void
@@ -27,11 +40,11 @@ trait PrepareIDs
 
     /**
      * Prepares the identifier list representation (by default ids).
-     * @param Request|null $request
-     * @param array $args
-     * @param array|null $params
-     * @param string|null $name
-     * @return string|null
+     * @param Request|null $request The incoming PSR-7 server request, or null when no request context is available.
+     * @param array        $args    The route/controller arguments that may carry an initial identifier list.
+     * @param array|null   $params  A reference to the parameter bag updated in place with the comma-separated identifiers.
+     * @param string|null  $name    The name of the identifier parameter to read and store (defaults to {@see ControllerParam::IDS}).
+     * @return string|null The resolved comma-separated identifier list, or null when none is provided.
      */
     protected function preparedIDs( ?Request $request , array $args = [] , ?array &$params = [] , ?string $name = ControllerParam::IDS ) :?string
     {
