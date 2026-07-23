@@ -1,15 +1,15 @@
 # Helpers
 
-Vingt fonctions libres enregistrées via la directive composer `autoload.files`,
-toutes dans l'espace de noms `oihana\controllers\helpers`. Ce sont des fonctions
-globales et non des méthodes de classe : importez chacune avec une instruction
-`use function`, par exemple
+Vingt et une fonctions libres enregistrées via la directive composer
+`autoload.files`, toutes dans l'espace de noms `oihana\controllers\helpers`. Ce
+sont des fonctions globales et non des méthodes de classe : importez chacune avec
+une instruction `use function`, par exemple
 `use function oihana\controllers\helpers\getParamInt;`. Elles couvrent la
 plomberie quotidienne d'un contrôleur HTTP — extraction de paramètres de requête
 typés (query, body ou les deux, avec prise en charge de la notation pointée),
-négociation de valeurs multilingues, et production de réponses de fichiers
-correctes (en-têtes de contenu, validateurs ETag, analyse des en-têtes
-`If-None-Match` et `Range`).
+imposition dans le body des valeurs portées par la route, négociation de valeurs
+multilingues, et production de réponses de fichiers correctes (en-têtes de
+contenu, validateurs ETag, analyse des en-têtes `If-None-Match` et `Range`).
 
 ```php
 use function oihana\controllers\helpers\getParamInt;
@@ -45,6 +45,31 @@ vaut `true`, auquel cas une exception `DI\NotFoundException` est levée.
 | `getQueryParam(?Request $request, string $name)` | `mixed` | Lit une seule valeur depuis la query string uniquement ; `null` si absente. |
 | `getBodyParam(?Request $request, string $name)` | `mixed` | Lit une seule valeur depuis le body analysé uniquement ; `null` si absente. |
 | `getBodyParams(?Request $request, array $names = [])` | `array` | Extrait plusieurs clés du body et les reconstruit en préservant l'imbrication de la notation pointée. |
+
+## Injection depuis la route
+
+Contrairement aux accesseurs ci-dessus, ce helper **écrit** dans la requête. Une
+route de sous-ressource nomme déjà une partie du payload : `/owners/{ownerId}/items`
+dit qui est le propriétaire, le body ne devrait donc ni avoir à le répéter ni
+pouvoir le contredire.
+
+| Signature | Retour | Rôle |
+|-----------|--------|------|
+| `injectRouteValues(?Request $request, array $args, array $bindings)` | `?Request` | Renvoie la requête dont le body analysé porte les paramètres de route, imposés par-dessus ce que l'appelant a fourni. |
+
+`$bindings` est une table `paramètre de route => champ du body` : une route
+imposant plusieurs champs coûte une entrée chacun. La route gagne toujours — un
+champ lié fourni par l'appelant est écrasé, jamais fusionné. Les champs du body
+acceptent la **notation pointée**, les niveaux manquants étant créés et les clés
+sœurs laissées intactes.
+
+Seuls une chaîne non vide ou un `int` sont injectés, un paramètre de route étant
+toujours du texte dans l'URL — tout le reste (paramètre absent, vide ou non
+scalaire, ou champ cible vide) est ignoré, la valeur de l'appelant restant alors
+en place. Quand aucune liaison ne s'applique, la requête est renvoyée telle
+quelle, sans clonage. Le body est normalisé via `toAssociativeArray()`, comme
+`getBodyParam()` : les payloads `stdClass` sont acceptés, mais le body réécrit
+est toujours un tableau associatif.
 
 ## Réponses HTTP / fichiers
 
@@ -101,6 +126,33 @@ function index( ServerRequestInterface $request, ResponseInterface $response ): 
 
     return $response;
 }
+```
+
+Imposer dans le payload soumis le propriétaire porté par l'URL :
+
+```php
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+use function oihana\controllers\helpers\injectRouteValues;
+
+// POST /owners/7/items
+function create( ServerRequestInterface $request, ResponseInterface $response, array $args ): ResponseInterface
+{
+    // Body : { "name": "Chair", "owner": "99" } — le client contredit l'URL.
+    $request = injectRouteValues( $request, $args, [ 'ownerId' => 'owner' ] );
+    // Body : [ 'name' => 'Chair', 'owner' => '7' ] — la route gagne.
+
+    return $response;
+}
+```
+
+La notation pointée atteint un champ imbriqué sans toucher à ses clés sœurs :
+
+```php
+// Body : { "owner": { "id": "99", "name": "Alice" } }
+$request = injectRouteValues( $request, $args, [ 'ownerId' => 'owner.id' ] );
+// Body : [ 'owner' => [ 'id' => '7', 'name' => 'Alice' ] ]
 ```
 
 Servir un fichier avec gestion conditionnelle de l'`ETag` et prise en charge des

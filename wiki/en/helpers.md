@@ -1,13 +1,13 @@
 # Helpers
 
-Twenty free functions registered through composer `autoload.files`, all under the
-`oihana\controllers\helpers` namespace. They are global functions, not class
+Twenty-one free functions registered through composer `autoload.files`, all under
+the `oihana\controllers\helpers` namespace. They are global functions, not class
 methods: import each one with a `use function` statement, e.g.
 `use function oihana\controllers\helpers\getParamInt;`. They cover the everyday
 glue of an HTTP controller — extracting typed request parameters (query, body or
-both, with dot-notation support), negotiating multilingual values, and producing
-correct file responses (content headers, ETag validators, `If-None-Match` and
-`Range` parsing).
+both, with dot-notation support), forcing route-borne values into the body,
+negotiating multilingual values, and producing correct file responses (content
+headers, ETag validators, `If-None-Match` and `Range` parsing).
 
 ```php
 use function oihana\controllers\helpers\getParamInt;
@@ -42,6 +42,29 @@ the relevant default, unless `$throwable` is `true`, in which case
 | `getQueryParam(?Request $request, string $name)` | `mixed` | Reads a single value from the query string only; `null` if absent. |
 | `getBodyParam(?Request $request, string $name)` | `mixed` | Reads a single value from the parsed body only; `null` if absent. |
 | `getBodyParams(?Request $request, array $names = [])` | `array` | Extracts several body keys and rebuilds them, preserving dot-notation nesting. |
+
+## Route injection
+
+Unlike the accessors above, this helper **writes** into the request. A
+sub-resource route already names part of the payload: `/owners/{ownerId}/items`
+says who the owner is, so the body should neither have to repeat it nor be able
+to contradict it.
+
+| Signature | Returns | Role |
+|-----------|---------|------|
+| `injectRouteValues(?Request $request, array $args, array $bindings)` | `?Request` | Returns the request whose parsed body carries the route placeholders, forced over whatever the caller supplied. |
+
+`$bindings` is a `placeholder => body field` map, so a route imposing several
+fields costs one entry each. The route always wins: a bound field supplied by
+the caller is overwritten, never merged. Body fields support **dot notation**,
+the missing levels being created and the sibling keys left alone.
+
+Only a non-empty string or an `int` is injected, a placeholder always being text
+in the URL — anything else (a missing, empty or non-scalar placeholder, or an
+empty target field) is skipped, so the caller's value stands. When no binding
+applies at all the request is returned untouched, without cloning. The body is
+normalized through `toAssociativeArray()`, like `getBodyParam()`: `stdClass`
+payloads are accepted, but the rewritten body is always an associative array.
 
 ## HTTP / file responses
 
@@ -97,6 +120,33 @@ function index( ServerRequestInterface $request, ResponseInterface $response ): 
 
     return $response;
 }
+```
+
+Forcing the owner carried by the URL into the submitted payload:
+
+```php
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+use function oihana\controllers\helpers\injectRouteValues;
+
+// POST /owners/7/items
+function create( ServerRequestInterface $request, ResponseInterface $response, array $args ): ResponseInterface
+{
+    // Body: { "name": "Chair", "owner": "99" } — the client contradicts the URL.
+    $request = injectRouteValues( $request, $args, [ 'ownerId' => 'owner' ] );
+    // Body: [ 'name' => 'Chair', 'owner' => '7' ] — the route wins.
+
+    return $response;
+}
+```
+
+Dot notation reaches a nested field, leaving its siblings alone:
+
+```php
+// Body: { "owner": { "id": "99", "name": "Alice" } }
+$request = injectRouteValues( $request, $args, [ 'ownerId' => 'owner.id' ] );
+// Body: [ 'owner' => [ 'id' => '7', 'name' => 'Alice' ] ]
 ```
 
 Serving a file with conditional `ETag` handling and range support:

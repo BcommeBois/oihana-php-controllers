@@ -2,8 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.0] - 2026-07-23
+
+### Added
+- `helpers\injectRouteValues()` — returns the request whose parsed body carries
+  the given route placeholders, forced over whatever the caller supplied.
+  A sub-resource route such as `/owners/{ownerId}/items` already names part of
+  the payload: the body should neither have to repeat it nor be able to
+  contradict it. Until now a controller could read a value from the query string
+  or from the body (`getParam()` and its typed variants), but never from the
+  route, so imposing a URL-borne value meant hand-rolling it in every controller.
+  - Takes a binding map (`placeholder => body field`), so a route imposing
+    several fields costs one entry each, not one call each.
+  - The route always wins: a value supplied by the caller on a bound field is
+    overwritten, never merged.
+  - Body fields support dot notation (`'owner.id'`), like the rest of the helper
+    family: the value is written at the designated depth, the missing levels
+    being created and the sibling keys left alone.
+  - Only a non-empty string or an int is injected. Anything else — a missing,
+    empty or non-scalar placeholder, or an empty target field — is skipped, the
+    route saying nothing about that field, so the caller's value stands. When no
+    binding applies, the request is returned untouched, without cloning.
+  - Bodies decoded as `stdClass` are accepted (normalized through
+    `toAssociativeArray()`, like `getBodyParam()`); the rewritten body is always
+    an associative array. Route values are cast to string, a placeholder always
+    being text in the URL.
+  - Wired via composer `autoload.files`, bringing the free-function helpers to 21.
+- Unit tests for the new helper (null request, injection into an empty / filled
+  body, route winning over the supplied value, several bindings at once, dotted
+  fields, object body, and the untouched-request cases).
 
 ## [1.0.0] - 2026-06-21
 
