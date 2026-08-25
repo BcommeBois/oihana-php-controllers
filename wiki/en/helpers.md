@@ -86,7 +86,7 @@ Read and filter multilingual maps (e.g. `['fr' => 'Bonjour', 'en' => 'Hello']`).
 | Signature | Returns | Role |
 |-----------|---------|------|
 | `translate(array\|object\|null $fields, string\|null $lang = null, string\|null $default = null)` | `mixed` | Returns the value for `$lang`, the `$default` language fallback, all fields when `$lang` is `null`, or `null`. |
-| `filterLanguages(mixed $fields, ?array $languages = null, ?callable $sanitize = null)` | `?array` | Keeps only `string`/`null` values for the listed languages, with an optional per-value sanitize callback; `null` on invalid/empty input. |
+| `filterLanguages(mixed $fields, ?array $languages = null, ?callable $sanitize = null)` | `?array` | Keeps only `string`/`null` values for the **received** languages the list allows — a language absent from the body is not rebuilt. Empty string normalised to `null`, optional per-value sanitize callback; `null` on invalid, empty or unknown-language-only input. |
 
 ## Controllers
 

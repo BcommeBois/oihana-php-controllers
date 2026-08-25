@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.2.0] - 2026-08-25
+
+### Fixed
+
+- **`helpers\filterLanguages()` no longer invents the languages it was not given.**
+  It used to walk the *configured* languages and fill every one absent from the body
+  with a null — so a partial edit was a full replacement in disguise: a caller
+  correcting a French label had the English one written to null, and read a `200`
+  with nothing to warn them. Nothing in the response could tell "cleared" from
+  "untouched", which is what kept the defect silent.
+
+  The helper now walks the languages **actually received**, filtered by the allowed
+  list. What a body does not name is not touched — the rule the rest of a partial
+  write already follows, and the only one that survives a language being added to a
+  project: a client that knows nothing of the newcomer leaves it standing instead of
+  wiping it.
+
+  - **An empty string is normalised to `null`.** A label that exists but says nothing
+    states no more than a missing label, and keeping both shapes forces every reader
+    to test for both. The normalisation runs *after* the sanitize callback, so a value
+    that sanitizing empties is cleared rather than stored as an empty label.
+  - **A null `$languages` finally applies no filtering**, as the signature has always
+    documented — walking a null list used to fail outright.
+  - Unchanged: an input holding no usable language (an empty map, or only unknown
+    languages) still returns `null`, which a payload layer reads as an explicit null.
+    "Touch nothing" is expressed by omitting the property, never by an empty map.
+
+  **Migration.** A caller that relied on every configured language coming back — to
+  index the result, or to write the whole map in one pass — must now read the keys it
+  actually got. Two tests of `getParamI18n()` pinned the old shape and were rewritten
+  against the new contract; nothing else in the suite moved (456 tests green).
+
 ## [1.1.0] - 2026-07-23
 
 ### Added

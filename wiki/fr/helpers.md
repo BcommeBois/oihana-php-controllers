@@ -92,7 +92,7 @@ Lire et filtrer des tables multilingues (par exemple
 | Signature | Retour | Rôle |
 |-----------|--------|------|
 | `translate(array\|object\|null $fields, string\|null $lang = null, string\|null $default = null)` | `mixed` | Renvoie la valeur pour `$lang`, le repli sur la langue `$default`, tous les champs si `$lang` vaut `null`, ou `null`. |
-| `filterLanguages(mixed $fields, ?array $languages = null, ?callable $sanitize = null)` | `?array` | Ne garde que les valeurs `string`/`null` des langues listées, avec un callback de nettoyage optionnel par valeur ; `null` si l'entrée est invalide ou vide. |
+| `filterLanguages(mixed $fields, ?array $languages = null, ?callable $sanitize = null)` | `?array` | Ne garde que les valeurs `string`/`null` des langues **reçues** que la liste autorise — une langue absente du corps n'est pas reconstruite. Chaîne vide ramenée à `null`, callback de nettoyage optionnel par valeur ; `null` si l'entrée est invalide, vide ou sans langue connue. |
 
 ## Contrôleurs
 

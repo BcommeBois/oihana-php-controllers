@@ -126,12 +126,47 @@ function filterLanguages(
 - Accepte un tableau ou un objet (les objets sont convertis en tableaux) ; toute
   autre forme (`string`, `int`, `bool`, …) est considérée comme invalide et
   produit `null`.
-- Parcourt `$languages` et copie `$fields[$lang]` lorsque c'est une `string` ou
-  `null` ; les valeurs non string/non null (nombres, tableaux imbriqués, objets)
-  sont entièrement ignorées.
+- Parcourt les langues **effectivement reçues** et conserve celles que
+  `$languages` autorise, lorsque la valeur est une `string` ou `null` ; les
+  valeurs non string/non null (nombres, tableaux imbriqués, objets) sont
+  entièrement ignorées, comme les langues hors liste. Un `$languages` à `null`
+  ne filtre rien.
 - Applique le callback optionnel `$sanitize` — `fn(string|null $value, string $lang): string|null` —
-  à chaque valeur conservée.
+  à chaque valeur conservée, **puis** normalise une chaîne vide en `null`.
 - Retourne `null` lorsque l'entrée est vide ou que rien n'a été conservé.
+
+#### 🔑 Ce qui n'est pas nommé n'est pas touché
+
+Une table de traductions se modifie comme n'importe quel autre champ d'une
+écriture partielle : les langues absentes du corps **ne sont pas reconstruites**.
+
+```php
+filterLanguages( [ 'fr' => 'Bonjour' ], [ 'fr', 'en' ] );
+// [ 'fr' => 'Bonjour' ]      <- aucune clé 'en' : l'anglais existant reste en place
+```
+
+C'est la seule règle qui survit à l'ajout d'une langue : un client qui ignore
+tout de la nouvelle venue la laisse debout au lieu de l'effacer. Auparavant, les
+langues absentes étaient remplies avec un `null` — corriger le libellé français
+effaçait donc l'anglais, silencieusement.
+
+#### Effacer une langue
+
+Un `null` **ou** une chaîne vide effacent la langue qu'ils nomment, et elle
+seule :
+
+```php
+filterLanguages( [ 'fr' => null ], [ 'fr', 'en' ] );  // [ 'fr' => null ]
+filterLanguages( [ 'fr' => ''   ], [ 'fr', 'en' ] );  // [ 'fr' => null ]
+```
+
+Un libellé présent mais vide ne dit rien de plus qu'un libellé absent : les deux
+formes sont ramenées à une seule, pour qu'aucun lecteur n'ait à tester les deux.
+
+> ⚠️ Une entrée sans aucune langue exploitable — une table vide, ou seulement des
+> langues inconnues — retourne `null`, que la couche d'écriture lit comme un
+> `null` explicite : « efface toute la propriété ». Pour ne rien toucher, il faut
+> **omettre la propriété**, jamais envoyer une table vide.
 
 ```php
 use function oihana\controllers\helpers\filterLanguages;

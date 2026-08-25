@@ -8,18 +8,46 @@ namespace oihana\controllers\helpers ;
  * This helper transforms an input array/object from the client to prepare a multilingual (i18n) property.
  * It keeps only string or null values, allows optional transformation or sanitization via a callback.
  *
+ * 🔑 **Only the languages actually received come back.** A translation map is edited like every other
+ * field of a partial body : what the caller did not mention is left alone. Filling the absent languages
+ * in — with a null, as this helper used to — turned every partial edit into a full replacement : a body
+ * carrying `{ "fr": "Bonjour" }` rewrote the English to null, and the caller read a `200` with nothing
+ * to warn them. The rule is now the one that governs the rest of a partial write : **absent means
+ * untouched**, and it is what lets a language be added to a project without every edit wiping it.
+ *
+ * 🔑 **An empty string is normalised to null.** A label that exists but says nothing states no more
+ * than a missing label, and keeping both shapes means every reader must test for both. The
+ * normalisation runs after the sanitize callback, so a value that sanitizing empties follows the same
+ * rule. Clearing one language is therefore `{ "fr": null }` or `{ "fr": "" }`, indifferently.
+ *
+ * ⚠️ An input carrying **no usable language at all** — an empty map, or only unknown languages — still
+ * returns `null`, which a payload layer reads as an explicit null : « clear the whole property ». It is
+ * unchanged behaviour, and the reason a caller meaning « touch nothing » must omit the property rather
+ * than send an empty map.
+ *
  * Note: this helper is permissive on input shape — invalid inputs (string, scalar, etc.) silently return null
  * rather than throwing. Callers that need to reject invalid shapes (e.g. to return a 422) must validate the
  * raw input upstream before calling this helper.
  *
  * @param mixed              $fields    Input translations (array<string,string|null> or object). Any other shape (string, scalar, …) is treated as invalid and ignored — the function returns null. Type validation must be done upstream by callers.
- * @param array<string>|null $languages Optional array of languages to filter the i18n definitions. If null, no filtering is applied.
+ * @param array<string>|null $languages Optional array of allowed languages. A language outside the list is dropped ; `null` applies no filtering and keeps every language received.
  * @param callable|null      $sanitize  Optional callback to transform or sanitize each value.  Signature: `fn(string|null $value, string $lang): string|null`
  *
- * @return array<string, string|null>|null Filtered translations matching the languages, or null if input is empty.
+ * @return array<string, string|null>|null The received translations, filtered and normalised, or null when the input holds no usable language.
  *
  * @example
  * ```php
+ * // A partial edit touches the language it names, and only that one.
+ * $filtered = filterLanguages( [ 'fr' => 'Bonjour' ] , [ 'fr' , 'en' ] ) ;
+ * // [ 'fr' => 'Bonjour' ]                 <- no 'en' key : the English is left alone
+ *
+ * // Clearing one language, either way round.
+ * $cleared = filterLanguages( [ 'fr' => null ] , [ 'fr' , 'en' ] ) ;
+ * // [ 'fr' => null ]
+ *
+ * $cleared = filterLanguages( [ 'fr' => '' ] , [ 'fr' , 'en' ] ) ;
+ * // [ 'fr' => null ]                      <- an empty string says nothing a null does not
+ *
  * $translations =
  * [
  *     'fr' => 'Bonjour <span style="color:red">monde</span>',
@@ -79,9 +107,12 @@ function filterLanguages
 
     $items = [] ;
 
-    foreach ( $languages as $lang )
+    foreach ( $fields as $lang => $value )
     {
-        $value = $fields[ $lang ] ?? null ;
+        if ( is_array( $languages ) && !in_array( $lang , $languages , true ) )
+        {
+            continue ;
+        }
 
         if ( !is_string( $value ) && !is_null( $value ) )
         {
@@ -93,7 +124,7 @@ function filterLanguages
             $value = $sanitize( $value , $lang ) ;
         }
 
-        $items[ $lang ] = $value ;
+        $items[ $lang ] = $value === '' ? null : $value ;
     }
 
     return empty( $items ) ? null : $items ;

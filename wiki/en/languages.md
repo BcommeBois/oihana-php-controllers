@@ -124,12 +124,45 @@ function filterLanguages(
 
 - Accepts an array or an object (objects are cast to arrays); any other shape
   (`string`, `int`, `bool`, …) is treated as invalid and yields `null`.
-- Iterates over `$languages` and copies `$fields[$lang]` when it is a `string`
-  or `null`; non-string/non-null values (numbers, nested arrays, objects) are
-  skipped entirely.
+- Iterates over the languages **actually received** and keeps those `$languages`
+  allows, when the value is a `string` or `null`; non-string/non-null values
+  (numbers, nested arrays, objects) are skipped entirely, as are languages
+  outside the list. A `null` `$languages` filters nothing.
 - Applies the optional `$sanitize` callback — `fn(string|null $value, string $lang): string|null` —
-  to each retained value.
+  to each retained value, **then** normalises an empty string to `null`.
 - Returns `null` when the input is empty or when nothing was retained.
+
+#### 🔑 What is not named is not touched
+
+A translation map is edited like every other field of a partial write: the
+languages absent from the body are **not rebuilt**.
+
+```php
+filterLanguages( [ 'fr' => 'Bonjour' ], [ 'fr', 'en' ] );
+// [ 'fr' => 'Bonjour' ]      <- no 'en' key: the stored English stays put
+```
+
+It is the only rule that survives a language being added to a project: a client
+that knows nothing of the newcomer leaves it standing instead of wiping it.
+Absent languages used to be filled in with a null — so correcting the French
+label cleared the English one, silently.
+
+#### Clearing one language
+
+A `null` **or** an empty string clears the language it names, and only that one:
+
+```php
+filterLanguages( [ 'fr' => null ], [ 'fr', 'en' ] );  // [ 'fr' => null ]
+filterLanguages( [ 'fr' => ''   ], [ 'fr', 'en' ] );  // [ 'fr' => null ]
+```
+
+A label that exists but says nothing states no more than a missing label: both
+shapes are reduced to one, so no reader has to test for both.
+
+> ⚠️ An input holding no usable language — an empty map, or only unknown
+> languages — returns `null`, which the write layer reads as an explicit null:
+> "clear the whole property". To touch nothing, **omit the property**; never send
+> an empty map.
 
 ```php
 use function oihana\controllers\helpers\filterLanguages;

@@ -93,9 +93,12 @@ class GetParamI18nTest extends TestCase
      */
     public function testNullRequest(): void
     {
+        // A default naming only the French names only the French : the absent
+        // language is not invented. It used to come back as an explicit null,
+        // which is what turned every partial write into a full replacement.
         $default = ['description' => ['fr' => 'Def FR']];
         $result = getParamI18n(null, 'description', $default, ['fr','en']);
-        $this->assertSame(['fr' => 'Def FR', 'en' => null], $result);
+        $this->assertSame(['fr' => 'Def FR'], $result);
     }
 
     /**
@@ -112,7 +115,9 @@ class GetParamI18nTest extends TestCase
 
         $request->method('getParsedBody')->willReturn([]);
 
+        // Nothing usable came in, so nothing comes back : a map of nulls would
+        // have cleared every language of the property instead.
         $result = getParamI18n($request, 'description', ['fr'], ['fr','en']);
-        $this->assertSame(['fr' => null, 'en' => null], $result);
+        $this->assertNull($result);
     }
 }
