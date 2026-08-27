@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **`traits\DefaultLangTrait` — the fallback locale, moved here from `oihana/php-arango`.**
+  It carries `defaultLang`: the locale a multilingual expression answers on when the
+  requested one is absent, or when no language was requested at all. It reads the value
+  from an `$init` definition, then from the container entry of the same name, lowercases
+  it and refuses a tag that is not one — the sibling of `LanguagesTrait`, whose shape it
+  follows exactly.
+
+  **Why it moved.** Nothing in it is about ArangoDB. It is the same sentence `languages`
+  and `PrepareLang` already speak in this package: `languages` is the set a request may
+  ask for, the requested language is what it asked, and `defaultLang` is what answers
+  when it asked for nothing. The three belong side by side, and a consumer wiring a
+  fallback locale should not have to depend on a database driver to get one.
+
+  **⚠ Reading the key.** `DefaultLangTrait::DEFAULT_LANG` is a **fatal error** since
+  PHP 8.4 — a trait constant cannot be accessed directly. Read it through the class that
+  uses the trait (`MyController::DEFAULT_LANG`), or write the literal `'defaultLang'`,
+  which is what a configuration file carries anyway.
+
+- **`helpers\isLanguageCode()`** — tells whether a value is a language tag safe to use
+  as an identifier: a two or three letter lowercase primary subtag, optionally followed
+  by dash-separated subtags (`fr`, `pt-BR`, `zh-Hant-TW`). It travelled with the trait
+  above, which validates through it.
+
+  A language tag rarely stays a value: it names a key of a translations map, a directory,
+  a template — places where it is written **verbatim** rather than passed as a parameter.
+  This is the proof that such an interpolation is harmless, which is why it rejects
+  `fr"`, `fr fr`, `fr.name` and `fr_FR` rather than doing its best with them. `FR` is
+  refused too, deliberately: callers normalise first, so a tag never reaches storage
+  under two spellings.
+
+
 ## [1.2.0] - 2026-08-25
 
 ### Fixed
@@ -23,9 +56,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   project: a client that knows nothing of the newcomer leaves it standing instead of
   wiping it.
 
-  - **An empty string is normalised to `null`.** A label that exists but says nothing
+  - **An empty string is normalized to `null`.** A label that exists but says nothing
     states no more than a missing label, and keeping both shapes forces every reader
-    to test for both. The normalisation runs *after* the sanitize callback, so a value
+    to test for both. The normalization runs *after* the sanitize callback, so a value
     that sanitizing empties is cleared rather than stored as an empty label.
   - **A null `$languages` finally applies no filtering**, as the signature has always
     documented — walking a null list used to fail outright.

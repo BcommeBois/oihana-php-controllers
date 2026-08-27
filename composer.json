@@ -50,6 +50,7 @@
             "src/oihana/controllers/helpers/getParamString.php",
             "src/oihana/controllers/helpers/getQueryParam.php",
             "src/oihana/controllers/helpers/injectRouteValues.php",
+            "src/oihana/controllers/helpers/isLanguageCode.php",
             "src/oihana/controllers/helpers/parseRangeHeader.php",
             "src/oihana/controllers/helpers/translate.php"
         ]
