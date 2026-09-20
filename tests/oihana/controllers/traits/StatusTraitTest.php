@@ -3,6 +3,7 @@
 namespace tests\oihana\controllers\traits;
 
 use oihana\controllers\traits\StatusTrait;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 use Psr\Http\Message\ResponseInterface;
@@ -48,6 +49,70 @@ final class StatusTraitTest extends TestCase
         $response = $this->mock->fail(null , $this->response);
 
         $this->assertSame($this->response, $response);
+    }
+
+    /**
+     * 🚨 A response refuses a status outside 100-599, so a code that is not one must never reach it :
+     * `fail()` answers 500 instead. Two constants come close enough to be passed by mistake —
+     * `HttpStatusCode::DEFAULT` is 0 and `BUSY` is 600 — and a SQLSTATE such as 'HY000' reads as 0
+     * once cast, which is how a database failure used to make the response throw.
+     *
+     * @param int|string|null $code   What the caller passes to fail().
+     * @param int             $status What the response must be asked for.
+     */
+    #[DataProvider('statusesAResponseRefuses')]
+    public function testFailNeverAsksForAStatusTheResponseRefuses( int|string|null $code , int $status ) :void
+    {
+        $asked = [] ;
+
+        $this->mock->fail( null , $this->recordingResponse( $asked ) , $code ) ;
+
+        $this->assertSame( [ $status ] , $asked ) ;
+    }
+
+    /**
+     * @return array<string, array{ 0: int|string|null , 1: int }>
+     */
+    public static function statusesAResponseRefuses() :array
+    {
+        return
+        [
+            'the SQLSTATE of a database failure' => [ 'HY000' , 500 ] ,
+            'no code at all'                     => [ null    , 500 ] ,
+            'the DEFAULT sentinel'               => [ 0       , 500 ] ,
+            'a code that is no status'           => [ 1       , 500 ] ,
+            'the BUSY sentinel'                  => [ 600     , 500 ] ,
+            'an error status'                    => [ 404     , 404 ] ,
+            'an error status of no constant'     => [ 499    , 499 ] ,
+            // An API retiring a version answers a redirection through fail() : a range limited to
+            // errors would turn it into a 500.
+            'a redirection'                      => [ 301     , 301 ] ,
+        ] ;
+    }
+
+    /**
+     * A response that records the statuses it is asked for.
+     *
+     * @param array<int, int> $asked Filled in place, in order.
+     */
+    private function recordingResponse( array &$asked ) :ResponseInterface
+    {
+        $stream = $this->createStub( StreamInterface::class ) ;
+        $stream->method( 'write' )->willReturnCallback( fn( string $data ) :int => strlen( $data ) ) ;
+
+        $response = $this->createStub( ResponseInterface::class ) ;
+        $response->method( 'getBody' )->willReturn( $stream ) ;
+        $response->method( 'withHeader' )->willReturnSelf() ;
+        $response->method( 'withStatus' )->willReturnCallback
+        (
+            function( int $code ) use ( &$asked , &$response ) :ResponseInterface
+            {
+                $asked[] = $code ;
+                return $response ;
+            }
+        ) ;
+
+        return $response ;
     }
 
     public function testFailReturnsResponseWithCustomCodeAndDetails()

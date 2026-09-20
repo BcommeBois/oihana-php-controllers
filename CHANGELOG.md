@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **`traits\StatusTrait::fail()` never asks for a status a response refuses.** It kept any code listed
+  among the constants of `HttpStatusCode` and fell back on `HttpStatusCode::DEFAULT` otherwise — and
+  two of those constants are not HTTP statuses : `DEFAULT` is `0`, `BUSY` is `600`. A PSR-7 response
+  accepts 100 to 599 only, so both made the response **throw** `Invalid HTTP status code` instead of
+  carrying the error, losing the message it was given.
+
+  Worse, `includes()` let through a code that is no number at all : the SQLSTATE of a database failure,
+  `'HY000'`, reads as `0` once cast to an integer, so it passed the guard and became a status of `0`.
+  Handing `$e->getCode()` to `fail()` — the natural reflex — therefore broke the response on every
+  database error.
+
+  A code is now kept when `HttpStatusCode::getType()` recognises it, which is exactly the 100 to 599
+  a response accepts, and anything else answers `500` with its description. A redirection is kept :
+  an API retiring a version answers `301` through `fail()`, and a range limited to errors would have
+  turned it into a `500`. Five cases are locked down in `StatusTraitTest`, on a response double that
+  records the status it is asked for — the previous double accepted any code, which is why the defect
+  went unseen.
+
 ### Added
 
 - **`traits\DefaultLangTrait` — the fallback locale, moved here from `oihana/php-arango`.**

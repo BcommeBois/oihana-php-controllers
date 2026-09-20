@@ -50,9 +50,17 @@ trait StatusTrait
      *
      * Automatically logs the error if logging is enabled.
      *
+     * The status is always one a response can carry : a code between 100 and 599 is kept as it is —
+     * a redirection included, since an API may answer `301` to retire a version — and anything else
+     * answers `500`. A PSR-7 response refuses a status outside that range, so a code of `0` or `600`
+     * made the response throw instead of carrying the error. Two of those come easily :
+     * `HttpStatusCode::DEFAULT` is `0` and `BUSY` is `600`, and a code that is no number at all — the
+     * SQLSTATE of a database failure, `'HY000'` — reads as `0` once cast to an integer.
+     *
      * @param ?Request        $request  Optional PSR-7 Request object.
      * @param ?Response       $response The PSR-7 Response object.
-     * @param int|string|null $code     The HTTP status code (default: 400).
+     * @param int|string|null $code     The HTTP status code (default: 400). Anything but a status of
+     *                                 100 to 599 answers 500.
      * @param ?string         $details  Optional detailed error message to override default description.
      * @param array           $options  Optional array of additional data to include (e.g., errors).
      * @param ?string         $accept   The header accepted by the client : 'application/cbor' or by default 'application/json'
@@ -83,7 +91,7 @@ trait StatusTrait
     )
     :?Response
     {
-        $code       = (int) ( HttpStatusCode::includes( (int) $code ) ? $code : HttpStatusCode::DEFAULT ) ;
+        $code       = HttpStatusCode::getType( $code ?? 0 ) !== null ? (int) $code : HttpStatusCode::INTERNAL_SERVER_ERROR ;
         $message    = HttpStatusCode::getDescription( $code ) ;
         $hasDetails = is_string( $details ) && $details != Char::EMPTY ;
 
