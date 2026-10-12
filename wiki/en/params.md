@@ -208,9 +208,24 @@ class ListController
 
 ### `PrepareFilter` & `PrepareFacets`
 
-`prepareFilter()` expects the `filter` query parameter to be a JSON string. It validates the JSON, decodes it to an array (logging a warning and falling back to `$args` otherwise), stores the original JSON in `&$params` and returns the decoded array.
+`prepareFilter()` expects the `filter` query parameter to be a JSON string describing an object or a list. It decodes it, stores the original JSON in `&$params` and returns the decoded array. An absent parameter, an empty one (`?filter=`, what a form field left blank sends) or `null` means "no filter": the `$args` value is returned.
 
-`prepareFacets()` combines two sources: the `facets` JSON query parameter, and per-parameter facet definitions declared in the controller's `$params` map (`prepareParamsFacets()`). This lets a route such as `/products?id=[12,255,300]` translate a plain query parameter into a facet definition when `ControllerParam::PARAMS => [ Prop::ID => ControllerParam::FACETS ]` is configured.
+`prepareFacets()` combines two sources: the `facets` JSON query parameter, and per-parameter facet definitions declared in the controller's `$params` map (`prepareParamsFacets()`). This lets a route such as `/products?id=[12,255,300]` translate a plain query parameter into a facet definition when `ControllerParam::PARAMS => [ Prop::ID => ControllerParam::FACETS ]` is configured. A parameter declared as a facet also accepts a JSON scalar (`?id=12`); `facets` itself must be an object or a list.
+
+A filter or a facet that **cannot be read is refused** with an `oihana\exceptions\http\Error400`: ignoring it would answer the whole collection as if it were the filtered list. A forgotten brace is enough:
+
+```
+GET /users?filter={"key":"age","val":30
+→ 400 The filter parameter is not valid JSON.
+
+GET /users?filter=42
+→ 400 The filter parameter must be a JSON object or list, int given.
+
+GET /products?id=abc          (id declared as a facet)
+→ 400 The id parameter is not valid JSON.   — quote an identifier: ?id="abc"
+```
+
+The message reaches the client as is; a controller relaying the exception code (`HttpStatusCode::fromException()`) therefore answers `400`.
 
 ```php
 use oihana\controllers\traits\prepare\PrepareFilter;

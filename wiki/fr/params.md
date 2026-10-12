@@ -208,9 +208,24 @@ class ListController
 
 ### `PrepareFilter` & `PrepareFacets`
 
-`prepareFilter()` attend que le paramètre de requête `filter` soit une chaîne JSON. Il valide le JSON, le décode en tableau (en journalisant un avertissement et en se repliant sur `$args` sinon), stocke le JSON d'origine dans `&$params` et retourne le tableau décodé.
+`prepareFilter()` attend que le paramètre de requête `filter` soit une chaîne JSON décrivant un objet ou une liste. Il la décode, stocke le JSON d'origine dans `&$params` et retourne le tableau décodé. Un paramètre absent, vide (`?filter=`, ce qu'envoie un champ de formulaire laissé vide) ou valant `null` signifie « pas de filtre » : la valeur de `$args` est retournée.
 
-`prepareFacets()` combine deux sources : le paramètre de requête JSON `facets`, et les définitions de facette par paramètre déclarées dans la carte `$params` du contrôleur (`prepareParamsFacets()`). Cela permet à une route telle que `/products?id=[12,255,300]` de traduire un simple paramètre de requête en définition de facette lorsque `ControllerParam::PARAMS => [ Prop::ID => ControllerParam::FACETS ]` est configuré.
+`prepareFacets()` combine deux sources : le paramètre de requête JSON `facets`, et les définitions de facette par paramètre déclarées dans la carte `$params` du contrôleur (`prepareParamsFacets()`). Cela permet à une route telle que `/products?id=[12,255,300]` de traduire un simple paramètre de requête en définition de facette lorsque `ControllerParam::PARAMS => [ Prop::ID => ControllerParam::FACETS ]` est configuré. Un paramètre déclaré comme facette accepte aussi un scalaire JSON (`?id=12`) ; `facets`, lui, doit être un objet ou une liste.
+
+Un filtre ou une facette **illisible est refusé** par une `oihana\exceptions\http\Error400` : l'ignorer rendrait toute la collection comme si c'était la liste filtrée. Une accolade oubliée suffit :
+
+```
+GET /users?filter={"key":"age","val":30
+→ 400 The filter parameter is not valid JSON.
+
+GET /users?filter=42
+→ 400 The filter parameter must be a JSON object or list, int given.
+
+GET /products?id=abc          (id déclaré comme facette)
+→ 400 The id parameter is not valid JSON.   — un identifiant se met entre guillemets : ?id="abc"
+```
+
+Le message part au client tel quel ; un contrôleur qui relaie le code de l'exception (`HttpStatusCode::fromException()`) répond donc `400`.
 
 ```php
 use oihana\controllers\traits\prepare\PrepareFilter;

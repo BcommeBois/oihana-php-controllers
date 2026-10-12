@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### 🚨 BREAKING
+
+- **`traits\prepare\PrepareFilter` and `PrepareFacets` — a filter or a facet that cannot be read is
+  refused.** A `?filter=` the trait could not read — not JSON, or JSON that is neither an object nor a
+  list — was logged as a `warning` and **ignored**: the route answered `200` with the whole, unfiltered
+  collection, and the client read it as the filtered one. A forgotten brace was enough :
+
+  ```
+  GET /users?filter={"key":"age","val":30    →  every user, 200
+  ```
+
+  `?facets=` behaved the same, worse : `?facets=42` was ignored without even a warning, and the warning
+  for a `?facets=` that was not JSON logged the facets of `$args`, not the faulty value. A parameter
+  declared as a facet (`ControllerParam::PARAMS => [ 'id' => ControllerParam::FACETS ]`) that was not
+  JSON was dropped without a word.
+
+  All three now throw an `oihana\exceptions\http\Error400`, whose message reaches the client :
+
+  | request                         | answer                                                               |
+  |:--------------------------------|:---------------------------------------------------------------------|
+  | `?filter={"key":"age"`          | `400` The filter parameter is not valid JSON.                        |
+  | `?filter=42`                    | `400` The filter parameter must be a JSON object or list, int given. |
+  | `?facets=[1,2` / `?facets=42`   | `400`, same messages for `facets`                                    |
+  | `?id=abc` (declared as a facet) | `400` The id parameter is not valid JSON.                            |
+
+  Still "no filter", as before : an absent parameter, an empty one (`?filter=`, what a blank form field
+  sends) and the JSON `null`. A parameter declared as a facet still accepts a JSON scalar (`?id=12`).
+  The `warning` lines are gone — the fault is told to the client, not hidden in a log.
+
+  **What breaks.** Requests that used to answer the whole collection now answer `400`. The one most
+  likely to show up is an **unquoted identifier on a facet parameter** : `GET /products?id=abc` used to
+  return **every product**, and is now refused — write `?id="abc"`, or `?id=["abc","def"]` for several.
+  A controller whose `catch` relays the exception code (`HttpStatusCode::fromException()`) answers `400`
+  with no change; one that catches `Exception` and answers `500` should let `Error400` through.
+
 ### Fixed
 
 - **`traits\StatusTrait::fail()` never asks for a status a response refuses.** It kept any code listed
