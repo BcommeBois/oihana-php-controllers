@@ -107,36 +107,64 @@ class ImportController
 
 ## `UploadTrait`
 
-`oihana\controllers\traits\UploadTrait` reçoit les fichiers téléversés en PSR-7, les valide et les déplace dans un répertoire de destination. Chaque helper délègue le travail par fichier — vérifications d'erreur/taille/MIME, assainissement du nom, garde anti-écrasement, déplacement — à une méthode privée mutualisée `storeUploadedFile()` et lève une `oihana\files\exceptions\FileException` en cas d'échec, laissant la mise en forme de la réponse au contrôleur.
+`oihana\controllers\traits\UploadTrait` reçoit les fichiers téléversés en PSR-7, les valide et les range dans un répertoire de destination. Chaque helper délègue le travail par fichier à une méthode privée mutualisée `storeUploadedFile()` et lève une `oihana\files\exceptions\FileException` en cas d'échec, laissant la mise en forme de la réponse au contrôleur.
 
 | Méthode | Retourne | Rôle |
 |---|---|---|
 | `receiveUpload( Request $request, string $field, string $destDir, array $options = [] )` | `string` | Reçoit un seul fichier pour `$field`, retournant le chemin absolu stocké. |
 | `receiveUploads( Request $request, string $field, string $destDir, array $options = [] )` | `string[]` | Reçoit un tableau de fichiers pour `$field`, retournant les chemins stockés. |
 
-### Clés de `UploadOption`
+### Pourquoi le fichier n'est jamais rangé sous le nom du client
 
-Les options proviennent de `oihana\controllers\enums\UploadOption` :
+Le client choisit librement le nom de son fichier, extension comprise. Un `photo.php` qui contient une **vraie image** — avec du PHP caché dedans — passe la vérification du type (`image/png`) : rangé sous son nom dans un dossier servi par le serveur web, ouvrir `…/photo.php` exécuterait son code. Et deux téléphones envoient très souvent deux `IMG_0001.jpg` : le second entrait en collision avec le premier.
+
+Le trait range donc par défaut sous un **nom tiré au hasard**, suivi de l'**extension du type lu dans le contenu** : `9f2c4e1a7b3d5f60a8c2e4b6d8f0a1c3.jpg`. Le nom d'origine, s'il faut l'afficher, se lit sur la requête (`getClientFilename()`) et se garde dans la ressource, pas dans le nom du fichier.
+
+> 💡 Rangez les fichiers **hors des dossiers servis** par le serveur web, et servez-les par une route qui vérifie les droits et pose le `Content-Type` enregistré. `.svg` et `.html` peuvent contenir du JavaScript : servez-les en téléchargement (`Content-Disposition: attachment`) ou ne les admettez pas.
+
+### Les trois façons de nommer le fichier
+
+| Mode | Nom rangé | Si le nom est pris |
+|---|---|---|
+| **par défaut** | 32 hexadécimaux + extension du type détecté | ne peut pas arriver en pratique |
+| `CLIENT_FILENAME => true` | le nom du client nettoyé par `slugify()` (`oihana/php-core`), avec l'extension du type : `Façade Nord (2).JPG` → `facade-nord-2.jpg`, `.user.ini` → `user.txt`, `photo.php.png` → `photo-php.png` ; rien de lisible (`日本語.png`) → nom tiré | **numéroté** : `img-0001-2.jpg`, `-3`… jusqu'à 100, puis nom tiré ; `OVERWRITE` écrase |
+| `FILENAME => '…'` | le nom donné, **respecté ou refusé**, jamais modifié : une extension qui ne correspond pas au type détecté, ou un point en tête, est refusée ; sans extension, il passe | refusé ; `OVERWRITE` écrase |
+
+`FILENAME` l'emporte sur `CLIENT_FILENAME`. `receiveUploads()` ignore `FILENAME` (un seul nom ne peut pas servir à plusieurs fichiers).
+
+### L'extension
+
+1. `EXTENSIONS` — la table `type => '.ext'` donnée par le contrôleur, consultée en premier ;
+2. sinon le catalogue `FileMimeType::getExtension()` (`oihana/php-files`) ; quand le type a plusieurs extensions (`image/jpeg` → `.jpeg`, `.jpg`), celle du client est gardée si elle en fait partie, sinon la première ;
+3. un contenu non reconnu (`application/octet-stream`), ou un type absent du catalogue, donne un **nom sans extension**.
+
+Les types sont comparés par leur nom de référence (`oihana\files\normalizeMimeType()`) : `audio/x-wav` et `audio/wav` sont le même format.
+
+### Clés de `UploadOption`
 
 | Constante | Valeur | Effet |
 |---|---|---|
-| `UploadOption::ALLOWED_MIME_TYPES` | `'allowedMimeTypes'` | Liste blanche des types MIME autorisés. Lorsqu'elle est définie, le fichier déplacé est validé avec `oihana\files\validateMimeType()` ; en cas de rejet, le fichier stocké est supprimé et l'exception est propagée. |
-| `UploadOption::FILENAME` | `'filename'` | Surcharge le nom du fichier stocké (upload unique seulement). Par défaut, le nom client assaini. |
-| `UploadOption::MAX_SIZE` | `'maxSize'` | Taille maximale autorisée en octets. Les uploads plus volumineux sont rejetés. Par défaut : aucune limite. |
-| `UploadOption::OVERWRITE` | `'overwrite'` | Indique si une cible existante peut être écrasée. Par défaut : `false`. |
+| `UploadOption::ALLOWED_MIME_TYPES` | `'allowedMimeTypes'` | Liste blanche des types MIME autorisés, vérifiée sur le contenu **avant** que le fichier prenne sa place ; un type refusé ne laisse aucun fichier. |
+| `UploadOption::CLIENT_FILENAME` | `'clientFilename'` | Range sous le nom du client, nettoyé (voir ci-dessus). Par défaut : `false`. |
+| `UploadOption::EXTENSIONS` | `'extensions'` | Table `type => '.ext'` lue avant le catalogue (`[ 'audio/x-wav' => '.wav' ]`). Une extension doit être un point suivi de lettres et de chiffres, sinon `FileException`. |
+| `UploadOption::FILENAME` | `'filename'` | Le nom du fichier rangé (envoi unique), respecté ou refusé. Par défaut : un nom tiré. |
+| `UploadOption::MAX_SIZE` | `'maxSize'` | Taille maximale autorisée en octets. Par défaut : aucune limite. |
+| `UploadOption::OVERWRITE` | `'overwrite'` | Une cible existante peut être écrasée. Par défaut : `false`. |
 
-### Règles de validation
+### L'ordre des opérations
 
 `storeUploadedFile()` applique, dans l'ordre :
 
 1. **Erreur d'upload** — si `getError()` n'est pas `UPLOAD_ERR_OK`, une `FileException` porte un message propre au code (voir ci-dessous).
-2. **Taille** — quand `MAX_SIZE` est un entier et que la taille rapportée le dépasse, l'upload est rejeté.
-3. **Assainissement du nom** — le nom passe par `basename()`, ce qui supprime les composants de chemin. Un nom client tel que `../../evil.png` est stocké en `evil.png`. Un nom résultant vide est rejeté.
-4. **Destination** — `$destDir` doit être un répertoire existant, sinon une `FileException` est levée.
-5. **Garde anti-écrasement** — si la cible existe déjà et que `OVERWRITE` n'est pas `true`, l'upload est rejeté.
-6. **Liste blanche MIME** — après le déplacement, si `ALLOWED_MIME_TYPES` est un tableau non vide, le fichier stocké est validé ; un type interdit supprime le fichier et relance l'exception.
+2. **Taille** — au-delà de `MAX_SIZE`, l'upload est rejeté.
+3. **Options** — un `FILENAME` vide ou commençant par un point, ou une table `EXTENSIONS` mal formée, est refusé **avant** tout déplacement.
+4. **Destination** — `$destDir` doit être un répertoire existant.
+5. **Dépôt provisoire** — `moveTo()` dépose le fichier sous `.upload-<hasard>.part` : un nom caché, sans extension exécutable. `move_uploaded_file()` et sa vérification restent.
+6. **Type** — lu sur le contenu ; `ALLOWED_MIME_TYPES` donné → vérifié. Refusé → le fichier provisoire est effacé.
+7. **Nom définitif** — selon le mode, puis **réservé d'un seul geste** (création exclusive, `fopen( … , 'x' )`) : deux envois simultanés du même nom ne s'écrasent jamais en silence.
+8. **Renommage** — le fichier provisoire prend son nom définitif (même dossier : opération atomique). Au moindre échec, le fichier provisoire et la réservation sont effacés.
 
-> `receiveUploads()` ignore `UploadOption::FILENAME` : chaque fichier conserve son propre nom client assaini afin d'éviter les collisions. Un champ manquant, qui n'est pas un tableau, ou qui contient une entrée non-`UploadedFileInterface` lève une `FileException`.
+> Un `.upload-….part` peut rester si PHP s'arrête entre les étapes 5 et 8 (un plantage du processus) : il est inoffensif, et les anciens peuvent être effacés sans risque.
 
 ### Messages par code d'erreur
 
@@ -168,37 +196,48 @@ class MediaController
 {
     use UploadTrait ;
 
-    public function uploadAvatar( Request $request, Response $response ) : Response
+    public function uploadPhoto( Request $request, Response $response ) : Response
     {
         try
         {
             $path = $this->receiveUpload
             (
                 $request ,
-                'avatar' ,    // le nom du champ de fichier téléversé
-                '/var/uploads' ,
+                'photo' ,              // le nom du champ de fichier téléversé
+                '/var/app/uploads' ,   // hors des dossiers servis
                 [
-                    UploadOption::ALLOWED_MIME_TYPES => [ ImageMimeType::PNG ] ,
+                    UploadOption::ALLOWED_MIME_TYPES => [ ImageMimeType::PNG , ImageMimeType::JPEG ] ,
                     UploadOption::MAX_SIZE           => 2 * 1024 * 1024 , // 2 Mo
-                    UploadOption::FILENAME           => 'avatar.png' ,    // nom stocké forcé
-                    UploadOption::OVERWRITE          => true ,
                 ]
             ) ;
+            // $path => /var/app/uploads/9f2c4e1a7b3d5f60a8c2e4b6d8f0a1c3.jpg
 
-            return $response->withStatus( 201 ) ; // $path => /var/uploads/avatar.png
+            return $response->withStatus( 201 ) ;
         }
         catch ( FileException $e )
         {
-            // champ manquant, erreur d'upload, trop volumineux, MIME interdit, répertoire absent, …
+            // champ manquant, erreur d'upload, trop volumineux, type refusé, répertoire absent, …
             return $response->withStatus( 400 ) ;
         }
     }
 
+    public function uploadAvatar( Request $request, Response $response ) : Response
+    {
+        // Un nom voulu : respecté, ou refusé s'il ment sur le type ; remplacé s'il existe déjà.
+        $path = $this->receiveUpload( $request , 'avatar' , '/var/app/avatars/42' ,
+        [
+            UploadOption::ALLOWED_MIME_TYPES => [ ImageMimeType::PNG ] ,
+            UploadOption::FILENAME           => 'avatar.png' ,
+            UploadOption::OVERWRITE          => true ,
+        ]) ;
+
+        return $response->withStatus( 201 ) ;
+    }
+
     public function uploadGallery( Request $request, Response $response ) : Response
     {
-        // FILENAME est ignoré ici : chaque fichier conserve son propre nom client assaini.
-        $paths = $this->receiveUploads( $request , 'docs' , '/var/uploads' ) ;
-        // [ '/var/uploads/a.png' , '/var/uploads/b.png' ]
+        // Les noms des clients, nettoyés et numérotés : deux IMG_0001.png donnent img-0001.png et img-0001-2.png.
+        $paths = $this->receiveUploads( $request , 'photos' , '/var/app/uploads' , [ UploadOption::CLIENT_FILENAME => true ] ) ;
 
         return $response->withStatus( 201 ) ;
     }

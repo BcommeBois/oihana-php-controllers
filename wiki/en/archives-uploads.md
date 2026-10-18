@@ -107,48 +107,76 @@ class ImportController
 
 ## `UploadTrait`
 
-`oihana\controllers\traits\UploadTrait` receives PSR-7 file uploads, validates them and moves them into a destination directory. Each helper delegates the per-file work — error/size/MIME checks, name sanitization, overwrite guard, move — to a shared private `storeUploadedFile()` method and throws a `oihana\files\exceptions\FileException` on any failure, leaving the response shaping to the controller.
+`oihana\controllers\traits\UploadTrait` receives PSR-7 file uploads, validates them and stores them in a destination directory. Each helper delegates the per-file work to a shared private `storeUploadedFile()` method and throws an `oihana\files\exceptions\FileException` on failure, leaving the response shaping to the controller.
 
-| Method | Returns | Role |
+| Method | Returns | Purpose |
 |---|---|---|
-| `receiveUpload( Request $request, string $field, string $destDir, array $options = [] )` | `string` | Receive a single file for `$field`, returning the absolute stored path. |
-| `receiveUploads( Request $request, string $field, string $destDir, array $options = [] )` | `string[]` | Receive an array of files for `$field`, returning the stored paths. |
+| `receiveUpload( Request $request, string $field, string $destDir, array $options = [] )` | `string` | Receives a single file for `$field`, returning the stored absolute path. |
+| `receiveUploads( Request $request, string $field, string $destDir, array $options = [] )` | `string[]` | Receives an array of files for `$field`, returning the stored paths. |
+
+### Why a file is never stored under the client's name
+
+The client chooses the name of its file freely, extension included. A `photo.php` holding a **real image** — with PHP hidden inside — passes the type check (`image/png`): stored under its name in a directory the web server serves, opening `…/photo.php` would run its code. And two phones very often send two `IMG_0001.jpg`: the second collided with the first.
+
+So the trait stores by default under a **random name**, followed by the **extension of the type read from the content**: `9f2c4e1a7b3d5f60a8c2e4b6d8f0a1c3.jpg`. The original name, when it has to be shown, is read from the request (`getClientFilename()`) and kept in the resource, not in the file name.
+
+> 💡 Store files **outside the directories the web server serves**, and serve them through a route that checks the rights and sets the recorded `Content-Type`. `.svg` and `.html` can hold JavaScript: serve them as downloads (`Content-Disposition: attachment`) or do not allow them.
+
+### The three ways to name the file
+
+| Mode | Stored name | When the name is taken |
+|---|---|---|
+| **default** | 32 hexadecimal characters + the extension of the detected type | cannot happen in practice |
+| `CLIENT_FILENAME => true` | the client name cleaned by `slugify()` (`oihana/php-core`), with the extension of the type: `Façade Nord (2).JPG` → `facade-nord-2.jpg`, `.user.ini` → `user.txt`, `photo.php.png` → `photo-php.png`; nothing readable (`日本語.png`) → a random name | **numbered**: `img-0001-2.jpg`, `-3`… up to 100, then a random name; `OVERWRITE` replaces |
+| `FILENAME => '…'` | the given name, **kept or refused**, never altered: an extension that does not match the detected type, or a leading dot, is refused; without extension, it passes | refused; `OVERWRITE` replaces |
+
+`FILENAME` wins over `CLIENT_FILENAME`. `receiveUploads()` ignores `FILENAME` (one name cannot serve several files).
+
+### The extension
+
+1. `EXTENSIONS` — the `type => '.ext'` table given by the controller, read first;
+2. otherwise the `FileMimeType::getExtension()` catalogue (`oihana/php-files`); when the type has several extensions (`image/jpeg` → `.jpeg`, `.jpg`), the client's is kept if it is one of them, the first one otherwise;
+3. an unrecognized content (`application/octet-stream`), or a type the catalogue does not know, gives a **name without extension**.
+
+Types are compared by their reference name (`oihana\files\normalizeMimeType()`): `audio/x-wav` and `audio/wav` are the same format.
 
 ### `UploadOption` keys
 
-Options come from `oihana\controllers\enums\UploadOption`:
-
 | Constant | Value | Effect |
 |---|---|---|
-| `UploadOption::ALLOWED_MIME_TYPES` | `'allowedMimeTypes'` | Whitelist of allowed MIME types. When set, the moved file is validated with `oihana\files\validateMimeType()`; on rejection the stored file is deleted and the exception propagates. |
-| `UploadOption::FILENAME` | `'filename'` | Override the stored file name (single upload only). Defaults to the sanitized client name. |
-| `UploadOption::MAX_SIZE` | `'maxSize'` | Maximum allowed size in bytes. Larger uploads are rejected. Default: no limit. |
-| `UploadOption::OVERWRITE` | `'overwrite'` | Whether an existing target may be overwritten. Default: `false`. |
+| `UploadOption::ALLOWED_MIME_TYPES` | `'allowedMimeTypes'` | Whitelist of allowed MIME types, checked on the content **before** the file takes its place; a refused type leaves no file. |
+| `UploadOption::CLIENT_FILENAME` | `'clientFilename'` | Stores under the client name, cleaned (see above). Default: `false`. |
+| `UploadOption::EXTENSIONS` | `'extensions'` | `type => '.ext'` table read before the catalogue (`[ 'audio/x-wav' => '.wav' ]`). An extension must be a dot followed by letters and digits, otherwise `FileException`. |
+| `UploadOption::FILENAME` | `'filename'` | The name of the stored file (single upload), kept or refused. Default: a random name. |
+| `UploadOption::MAX_SIZE` | `'maxSize'` | Maximum allowed size in bytes. Default: no limit. |
+| `UploadOption::OVERWRITE` | `'overwrite'` | An existing target may be replaced. Default: `false`. |
 
-### Validation rules
+### The order of operations
 
-`storeUploadedFile()` enforces, in order:
+`storeUploadedFile()` applies, in order:
 
-1. **Upload error** — if `getError()` is not `UPLOAD_ERR_OK`, a `FileException` carries a per-code message (see below).
-2. **Size** — when `MAX_SIZE` is an int and the reported size exceeds it, the upload is rejected.
-3. **Filename sanitization** — the name is run through `basename()`, so path components are stripped. A client name like `../../evil.png` is stored as `evil.png`. An empty resulting name is rejected.
-4. **Destination** — `$destDir` must be an existing directory, otherwise a `FileException` is thrown.
-5. **Overwrite guard** — if the target already exists and `OVERWRITE` is not `true`, the upload is rejected.
-6. **MIME whitelist** — after the move, if `ALLOWED_MIME_TYPES` is a non-empty array, the stored file is validated; a disallowed type deletes the file and re-throws.
+1. **Upload error** — when `getError()` is not `UPLOAD_ERR_OK`, a `FileException` carries a code-specific message (see below).
+2. **Size** — above `MAX_SIZE`, the upload is rejected.
+3. **Options** — an empty `FILENAME` or one starting with a dot, or a malformed `EXTENSIONS` table, is refused **before** anything is moved.
+4. **Destination** — `$destDir` must be an existing directory.
+5. **Provisional file** — `moveTo()` puts the file under `.upload-<random>.part`: a hidden name, with no executable extension. `move_uploaded_file()` and its check remain.
+6. **Type** — read from the content; `ALLOWED_MIME_TYPES` given → checked. Refused → the provisional file is removed.
+7. **Final name** — chosen by the mode, then **reserved in one step** (exclusive creation, `fopen( … , 'x' )`): two simultaneous uploads of the same name never overwrite each other silently.
+8. **Rename** — the provisional file takes its final name (same directory: an atomic operation). On any failure, the provisional file and the reservation are removed.
 
-> `receiveUploads()` ignores `UploadOption::FILENAME`: each file keeps its own sanitized client name to avoid collisions. A field that is missing, not an array, or contains a non-`UploadedFileInterface` entry raises a `FileException`.
+> A `.upload-….part` may remain if PHP stops between steps 5 and 8 (a crash of the process): it is harmless, and old ones can be deleted safely.
 
-### Per-error-code messages
+### Messages by error code
 
-When `getError()` is not `UPLOAD_ERR_OK`, the message is mapped from the PHP `UPLOAD_ERR_*` code:
+When `getError()` is not `UPLOAD_ERR_OK`, the message is derived from the PHP `UPLOAD_ERR_*` code:
 
-| Code | Message contains |
+| Code | The message contains |
 |---|---|
 | `UPLOAD_ERR_INI_SIZE` | `upload_max_filesize` |
 | `UPLOAD_ERR_FORM_SIZE` | `MAX_FILE_SIZE` |
-| `UPLOAD_ERR_PARTIAL` | `partially` uploaded |
-| `UPLOAD_ERR_NO_FILE` | `No file` was uploaded |
-| `UPLOAD_ERR_NO_TMP_DIR` | missing a `temporary folder` |
+| `UPLOAD_ERR_PARTIAL` | file `partially` uploaded |
+| `UPLOAD_ERR_NO_FILE` | `No file` uploaded |
+| `UPLOAD_ERR_NO_TMP_DIR` | missing `temporary folder` |
 | `UPLOAD_ERR_CANT_WRITE` | failed to `write` to disk |
 | `UPLOAD_ERR_EXTENSION` | a PHP `extension` stopped the upload |
 | any other code | `The file upload failed (error code N).` |
@@ -168,37 +196,48 @@ class MediaController
 {
     use UploadTrait ;
 
-    public function uploadAvatar( Request $request, Response $response ) : Response
+    public function uploadPhoto( Request $request, Response $response ) : Response
     {
         try
         {
             $path = $this->receiveUpload
             (
                 $request ,
-                'avatar' ,    // the uploaded-file field name
-                '/var/uploads' ,
+                'photo' ,              // the uploaded-file field name
+                '/var/app/uploads' ,   // outside the served directories
                 [
-                    UploadOption::ALLOWED_MIME_TYPES => [ ImageMimeType::PNG ] ,
+                    UploadOption::ALLOWED_MIME_TYPES => [ ImageMimeType::PNG , ImageMimeType::JPEG ] ,
                     UploadOption::MAX_SIZE           => 2 * 1024 * 1024 , // 2 MB
-                    UploadOption::FILENAME           => 'avatar.png' ,    // forced stored name
-                    UploadOption::OVERWRITE          => true ,
                 ]
             ) ;
+            // $path => /var/app/uploads/9f2c4e1a7b3d5f60a8c2e4b6d8f0a1c3.jpg
 
-            return $response->withStatus( 201 ) ; // $path => /var/uploads/avatar.png
+            return $response->withStatus( 201 ) ;
         }
         catch ( FileException $e )
         {
-            // missing field, upload error, too large, disallowed MIME, missing dir, …
+            // missing field, upload error, too large, refused type, missing directory, …
             return $response->withStatus( 400 ) ;
         }
     }
 
+    public function uploadAvatar( Request $request, Response $response ) : Response
+    {
+        // A chosen name: kept, or refused when it lies about the type; replaced when it exists.
+        $path = $this->receiveUpload( $request , 'avatar' , '/var/app/avatars/42' ,
+        [
+            UploadOption::ALLOWED_MIME_TYPES => [ ImageMimeType::PNG ] ,
+            UploadOption::FILENAME           => 'avatar.png' ,
+            UploadOption::OVERWRITE          => true ,
+        ]) ;
+
+        return $response->withStatus( 201 ) ;
+    }
+
     public function uploadGallery( Request $request, Response $response ) : Response
     {
-        // FILENAME is ignored here: each file keeps its own sanitized client name.
-        $paths = $this->receiveUploads( $request , 'docs' , '/var/uploads' ) ;
-        // [ '/var/uploads/a.png' , '/var/uploads/b.png' ]
+        // The client names, cleaned and numbered: two IMG_0001.png give img-0001.png and img-0001-2.png.
+        $paths = $this->receiveUploads( $request , 'photos' , '/var/app/uploads' , [ UploadOption::CLIENT_FILENAME => true ] ) ;
 
         return $response->withStatus( 201 ) ;
     }

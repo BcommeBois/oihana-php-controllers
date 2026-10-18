@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-18
+
 ### 🚨 BREAKING
 
 - **`traits\prepare\PrepareFilter` and `PrepareFacets` — a filter or a facet that cannot be read is
@@ -41,6 +43,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   A controller whose `catch` relays the exception code (`HttpStatusCode::fromException()`) answers `400`
   with no change; one that catches `Exception` and answers `500` should let `Error400` through.
 
+- **`traits\UploadTrait` — a stored file no longer takes the name the client gave it.** Without
+  `UploadOption::FILENAME`, it kept the client name and extension (through `basename()`): a `photo.php`
+  holding a real image passed the type check (`image/png`) and was stored as `photo.php` — code the web
+  server runs, if the directory is served. It is now stored under a **random name** and the **extension
+  of the type read from its content** (`9f2c4e1a7b3d5f60a8c2e4b6d8f0a1c3.png`). The client name is kept
+  on request only (`UploadOption::CLIENT_FILENAME`, below), cleaned.
+
+  **`UploadOption::FILENAME` is kept or refused, never altered**: a name starting with a dot
+  (`.htaccess`, `.user.ini`), or whose extension does not match the detected type (`avatar.php` for a
+  PNG), throws a `FileException`; a name without extension passes.
+
+  **What breaks.** Code that expected the client name on disk gets a random one — read
+  `getClientFilename()` and keep it in the resource, or ask for `CLIENT_FILENAME`. An empty client name
+  no longer throws (the name is drawn). A `FILENAME` that lied about its type is now refused.
+
 ### Fixed
 
 - **`traits\StatusTrait::fail()` never asks for a status a response refuses.** It kept any code listed
@@ -60,6 +77,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   turned it into a `500`. Five cases are locked down in `StatusTraitTest`, on a response double that
   records the status it is asked for — the previous double accepted any code, which is why the defect
   went unseen.
+
+- **`traits\UploadTrait` — two uploads of the same name no longer overwrite each other.** The guard
+  checked that the target did not exist, then moved the file: two uploads of the same name at the same
+  time both saw a free name, and the second replaced the first without a word (`rename()` replaces
+  silently). The final name is now **reserved in one step** (exclusive creation, `fopen( … , 'x' )`)
+  before the file takes it. And `receiveUploads()`, which kept the client names "to avoid collisions",
+  refused the second of two `IMG_0001.jpg` — the most common case with phones: each file now gets its
+  own name.
 
 ### Added
 
@@ -92,6 +117,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `fr"`, `fr fr`, `fr.name` and `fr_FR` rather than doing its best with them. `FR` is
   refused too, deliberately: callers normalise first, so a tag never reaches storage
   under two spellings.
+
+- **`UploadOption::CLIENT_FILENAME`** — stores the file under the client name, cleaned:
+  `oihana\core\strings\slugify()` on the part before the extension (no leading dot, no dot inside,
+  ASCII lower-case, at most 200 characters — `Façade Nord (2).JPG` → `facade-nord-2.jpg`,
+  `.user.ini` → `user.txt`, `photo.php.png` → `photo-php.png`; nothing left gives a random name), and
+  the extension of the detected type — kept when the client's matches, replaced otherwise, added when
+  missing. A name already taken is numbered (`-2`, `-3`… up to 100, then a random name), unless
+  `OVERWRITE` is set.
+- **`UploadOption::EXTENSIONS`** — a `type => '.ext'` table read before the catalogue of
+  `oihana/php-files`, for a type it does not know or to prefer one of several
+  (`[ 'audio/x-wav' => '.wav' ]`). Types are compared by their reference name
+  (`oihana\files\normalizeMimeType()`); an extension must be a dot followed by letters and digits.
+
+### Security
+
+- **`traits\UploadTrait` — a file is checked before it takes its place.** It was moved to its final
+  name, then checked (`moveTo()` before `validateMimeType()`): a refused file existed, for an instant,
+  under its final name in the destination. It is now moved under a provisional name
+  (`.upload-<random>.part` — hidden, no executable extension), its type is read from its content and
+  checked, and only then is it renamed (same directory: atomic). A refused file leaves nothing; a
+  `.part` left by a crashed process is harmless.
+- The extension of a stored file is always the one of its content's type — never the client's, never
+  one a `FILENAME` claims against the content. Store uploads outside the served directories, and serve
+  `.svg` / `.html` as downloads: both can carry JavaScript. Documented in `wiki/{en,fr}/archives-uploads.md`.
 
 
 ## [1.2.0] - 2026-08-25
